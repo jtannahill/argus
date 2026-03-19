@@ -6,8 +6,8 @@ class AuthManager {
     static let shared = AuthManager()
 
     private let clientId = "7fbvjg0d8rcgi550j7pdvaljfp"
-    private let username = "james@plocamium.ventures"
-    private let password = "ArgusSecure2026!"
+    private let username = "argus@plocamium.ventures"
+    private let password = "ArgusField2026!"
     private let poolRegion = "us-east-1"
 
     private(set) var token: String = ""
@@ -21,7 +21,7 @@ class AuthManager {
     }
 
     func refreshToken() async {
-        let url = URL(string: "https://cognito-idp.\(poolRegion).amazonaws.com/")!
+        let url = URL(string: "https://cognito-idp.\(poolRegion).amazonaws.com")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/x-amz-json-1.1", forHTTPHeaderField: "Content-Type")
