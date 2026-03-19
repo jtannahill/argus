@@ -104,10 +104,12 @@ export default function ArgusMap() {
     const marker = new mapboxgl.Marker({ color })
       .setLngLat([sighting.longitude, sighting.latitude])
       .setPopup(
-        new mapboxgl.Popup().setHTML(`
-          <strong>${sighting.plate}</strong><br/>
-          ${new Date(sighting.timestamp).toLocaleString()}<br/>
-          Confidence: ${(sighting.confidence * 100).toFixed(0)}%
+        new mapboxgl.Popup({ className: 'argus-popup' }).setHTML(`
+          <div style="background:#1f2937;color:#f9fafb;padding:8px 12px;border-radius:8px;font-family:monospace;">
+            <div style="font-size:16px;font-weight:bold;color:#22c55e;">${sighting.plate}</div>
+            <div style="font-size:11px;color:#9ca3af;margin-top:4px;">${new Date(sighting.timestamp).toLocaleString()}</div>
+            <div style="font-size:11px;color:#9ca3af;">Confidence: ${(sighting.confidence * 100).toFixed(0)}%</div>
+          </div>
         `)
       )
       .addTo(map.current);
