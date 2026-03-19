@@ -8,14 +8,16 @@ Usage:
     python seed_streetview.py --api-key YOUR_GOOGLE_KEY [options]
 
 Options:
-    --limit INT         Max number of buildings to process (default: 100)
-    --dry-run           Fetch PLUTO data and log actions without writing to AWS
-    --api-key STR       Google Street View Static API key (required unless --dry-run)
-    --bucket STR        S3 bucket for image storage (default: argus-index)
-    --table STR         DynamoDB table name (default: ArgusTable)
-    --endpoint STR      SageMaker endpoint name for CLIP embeddings (default: argus-clip)
-    --headings STR      Comma-separated headings in degrees (default: 0,90,180,270)
-    --region STR        AWS region (default: us-east-1)
+    --limit INT           Max number of buildings to process (default: 100)
+    --dry-run             Fetch PLUTO data and log actions without writing to AWS
+    --api-key STR         Google Street View Static API key (required unless --dry-run)
+    --bucket STR          S3 bucket for image storage (default: argus-index)
+    --table STR           DynamoDB table name (default: ArgusTable)
+    --endpoint STR        SageMaker endpoint name for CLIP embeddings (default: argus-clip)
+    --headings STR        Comma-separated headings in degrees (default: 0,90,180,270)
+    --region STR          AWS region (default: us-east-1)
+    --skip-embeddings     Skip SageMaker CLIP embedding call; store images in S3 only
+                          (DynamoDB records are still written with an empty embedding field)
 """
 
 import argparse
@@ -184,6 +186,7 @@ def process_building(
     endpoint_name: str,
     table,
     dry_run: bool,
+    skip_embeddings: bool = False,
 ) -> dict:
     """Fetch Street View images for one building and index them.
 
@@ -221,12 +224,16 @@ def process_building(
             skipped += 1
             continue
 
-        try:
-            embedding = get_clip_embedding(sagemaker_runtime, endpoint_name, image_bytes)
-        except Exception as exc:
-            log.warning("CLIP embedding failed for BBL=%s heading=%d: %s", bbl, heading, exc)
-            skipped += 1
-            continue
+        if skip_embeddings:
+            embedding = []
+            log.debug("  Skipping CLIP embedding for BBL=%s heading=%d (--skip-embeddings)", bbl, heading)
+        else:
+            try:
+                embedding = get_clip_embedding(sagemaker_runtime, endpoint_name, image_bytes)
+            except Exception as exc:
+                log.warning("CLIP embedding failed for BBL=%s heading=%d: %s", bbl, heading, exc)
+                skipped += 1
+                continue
 
         try:
             put_building_image(table, bbl, heading, s3_key, embedding)
@@ -289,6 +296,11 @@ def parse_args(argv=None) -> argparse.Namespace:
         default="us-east-1",
         help="AWS region (default: us-east-1)",
     )
+    parser.add_argument(
+        "--skip-embeddings",
+        action="store_true",
+        help="Skip SageMaker CLIP embedding call; download and store images in S3 only",
+    )
     return parser.parse_args(argv)
 
 
@@ -305,8 +317,8 @@ def main(argv=None) -> int:
         return 1
 
     log.info(
-        "Starting Street View seeding | limit=%d dry_run=%s bucket=%s table=%s endpoint=%s headings=%s",
-        args.limit, args.dry_run, args.bucket, args.table, args.endpoint, headings,
+        "Starting Street View seeding | limit=%d dry_run=%s skip_embeddings=%s bucket=%s table=%s endpoint=%s headings=%s",
+        args.limit, args.dry_run, args.skip_embeddings, args.bucket, args.table, args.endpoint, headings,
     )
 
     # Fetch buildings from PLUTO
@@ -329,7 +341,10 @@ def main(argv=None) -> int:
         dynamodb = boto3.resource("dynamodb", region_name=args.region)
         table = dynamodb.Table(args.table)
         s3_client = boto3.client("s3", region_name=args.region)
-        sagemaker_runtime = boto3.client("sagemaker-runtime", region_name=args.region)
+        if not args.skip_embeddings:
+            sagemaker_runtime = boto3.client("sagemaker-runtime", region_name=args.region)
+        else:
+            log.info("--skip-embeddings: SageMaker client will NOT be initialised")
 
     # Process each building
     total_attempted = 0
@@ -357,6 +372,7 @@ def main(argv=None) -> int:
             endpoint_name=args.endpoint,
             table=table,
             dry_run=args.dry_run,
+            skip_embeddings=args.skip_embeddings,
         )
 
         total_attempted += summary["attempted"]
