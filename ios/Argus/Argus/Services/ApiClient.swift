@@ -92,11 +92,10 @@ class ApiClient {
             if let lon = profile.longitude { profileDict["longitude"] = lon }
             if let y = profile.yearBuilt { profileDict["yearBuilt"] = y }
             if let s = profile.stories { profileDict["stories"] = s }
-            if let u = profile.unitsRes { profileDict["unitsRes"] = u }
+            if let u = profile.residentialUnits { profileDict["residentialUnits"] = u }
             if let lm = profile.landmark { profileDict["landmark"] = lm }
             if let ln = profile.landmarkName { profileDict["landmarkName"] = ln }
-            if let bc = profile.bldgClass { profileDict["bldgClass"] = bc }
-            if let own = profile.ownername { profileDict["ownername"] = own }
+            if let bc = profile.buildingClass { profileDict["buildingClass"] = bc }
             body["profile"] = profileDict
         }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)

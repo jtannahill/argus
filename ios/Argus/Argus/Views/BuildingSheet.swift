@@ -123,6 +123,23 @@ struct BuildingSheet: View {
         }
     }
 
+    private func togglePin() async {
+        isPinning = true
+        do {
+            await AuthManager.shared.ensureToken()
+            if isPinned {
+                try await ApiClient.shared.unpinBuilding(bbl: building.bbl)
+                isPinned = false
+            } else {
+                try await ApiClient.shared.pinBuilding(bbl: building.bbl, building: building)
+                isPinned = true
+            }
+        } catch {
+            // Pin toggle failed — ignore silently
+        }
+        isPinning = false
+    }
+
     private func loadDetail() async {
         guard detail == nil else { return }
         isLoading = true
