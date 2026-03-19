@@ -8,7 +8,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from shared.dynamo import get_table
 from shared.models import sighting_pk, sighting_sk, enrichment_sk
-from shared.diplomatic import detect_diplomatic_format
 
 
 def _cross_validate(classifier: dict, registration: dict) -> list[str]:
@@ -62,8 +61,7 @@ def lambda_handler(event, context):
     registration = plate_lookup.get('registration', {})
     mismatches = _cross_validate(vehicle_classifier, registration)
 
-    # Diplomatic plate detection
-    diplomatic = detect_diplomatic_format(plate)
+    diplomatic = {}
 
     enrichment = {
         'PK': sighting_pk(plate),

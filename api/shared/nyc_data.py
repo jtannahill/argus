@@ -140,18 +140,22 @@ class NYCDataProvider:
         lon: float,
         heading: float,
         radius_m: float = 50,
+        cone_degrees: float = 90,
     ) -> List[Dict[str, Any]]:
         """Find candidate buildings near (lat, lon) within heading cone.
 
         Queries PLUTO by bounding box derived from radius_m, then filters
-        by heading cone (90° by default) to return only buildings the user
-        is facing. Returns up to 3 candidates sorted by distance.
+        by heading cone to return only buildings the user is facing.
+        Returns up to 3 candidates sorted by distance.
 
         Args:
             lat: User latitude in decimal degrees.
             lon: User longitude in decimal degrees.
             heading: User compass heading in degrees (0 = north).
             radius_m: Bounding box half-side in meters (default 50).
+            cone_degrees: Full width of the heading acceptance cone in
+                degrees (default 90). Narrow cones improve precision at
+                longer distances (e.g. 15° at 800 m, 90° at 30 m).
 
         Returns:
             List of up to 3 PLUTO records (dicts) sorted by distance.
@@ -180,7 +184,7 @@ class NYCDataProvider:
         candidates = response.json()
 
         # Filter by heading cone
-        filtered = self._filter_by_heading(lat, lon, heading, candidates)
+        filtered = self._filter_by_heading(lat, lon, heading, candidates, cone_degrees=cone_degrees)
 
         # Sort by distance and return top 3
         def distance_key(b: Dict[str, Any]) -> float:

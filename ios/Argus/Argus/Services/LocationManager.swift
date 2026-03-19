@@ -37,10 +37,11 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
                 // negative = pointing downward toward ground.
                 // When held portrait pointing at a building: pitch ≈ 0°
                 // When tilted to look down: pitch goes negative.
-                let pitchDeg = motion.attitude.pitch * (180.0 / .pi)
-                // CMAttitude pitch is measured from horizontal; subtract 90° to get
-                // our convention where 0 = camera aimed at horizon.
-                self.pitch = pitchDeg - 90.0
+                // CMAttitude.pitch: 0 = flat on table, π/2 = upright portrait
+                // When held upright (camera at horizon): pitch ≈ π/2 (90°)
+                // Our convention: 0° = camera aimed at horizon, negative = looking down
+                let pitchRad = motion.attitude.pitch
+                self.pitch = (pitchRad * 180.0 / .pi) - 90.0
             }
         }
     }
