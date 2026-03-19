@@ -165,21 +165,33 @@ def _generate_story(entry, table, pk):
         if entry.get('ownership'):
             owner = entry['ownership'][0].get('name', '')
 
+        units = profile.get('units', '')
+        res_units = profile.get('residentialUnits', '0')
+        is_commercial = res_units in ('0', '', None) and units
+
         prompt = (
-            f"You are a knowledgeable NYC architectural historian. Write a brief, engaging story about this building.\n\n"
+            f"You are a knowledgeable NYC building expert. Write a brief, engaging profile of this building.\n\n"
             f"Building: {address}\nYear Built: {year}\nStories: {stories}\n"
-            f"Building Class: {bldg_class}\nZoning: {zone}\n"
+            f"Building Class: {bldg_class}\nZoning: {zone}\nUnits: {units}\n"
             f"{'Landmark: ' + landmark if landmark else ''}\n"
-            f"{'Current Owner: ' + owner if owner else ''}\n\n"
+            f"{'Current Owner: ' + owner if owner else ''}\n"
+            f"{'Type: Commercial (0 residential units)' if is_commercial else ''}\n\n"
             f'Respond in JSON: {{"headline": "one-line hook under 80 chars", '
-            f'"narrative": "2-3 paragraph engaging story", '
-            f'"funFacts": ["fact 1", "fact 2", "fact 3"]}}\n\n'
-            f"Be specific. If not a famous building, focus on architectural style, era, and neighborhood."
+            f'"narrative": "2-3 paragraph engaging story covering history, architecture, and neighborhood context'
+            f'{". Include notable current or past tenants, businesses, or retail if known" if is_commercial else ""}'
+            f'{". Mention any recent notable events, sales, or news about this property or block if known" if owner else ""}'
+            f'", '
+            f'"funFacts": ["fact 1", "fact 2", "fact 3"]'
+            f'{", " if is_commercial else ""}'
+            f'{"\"notableTenants\": [\"tenant 1\", \"tenant 2\"] or empty list if unknown" if is_commercial else ""}'
+            f'}}\n\n'
+            f"Be specific and factual. Only include tenants/businesses you're confident about. "
+            f"If not a famous building, focus on architectural style, era, and neighborhood character."
         )
 
         bedrock = boto3.client('bedrock-runtime', region_name='us-east-1')
         resp = bedrock.invoke_model(
-            modelId='anthropic.claude-sonnet-4-20250514',
+            modelId='anthropic.claude-3-haiku-20240307-v1:0',
             contentType='application/json',
             accept='application/json',
             body=json.dumps({

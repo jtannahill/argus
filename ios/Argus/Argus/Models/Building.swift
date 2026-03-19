@@ -41,6 +41,7 @@ struct BuildingStory: Codable {
     let headline: String?
     let narrative: String?
     let funFacts: [String]?
+    let notableTenants: [String]?
     let generatedAt: String?
 }
 

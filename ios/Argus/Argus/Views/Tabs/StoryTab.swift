@@ -14,6 +14,28 @@ struct StoryTab: View {
                     .foregroundColor(.secondary)
                     .lineSpacing(4)
 
+                if let tenants = story.notableTenants, !tenants.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Notable Tenants")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.blue)
+
+                        ForEach(tenants, id: \.self) { tenant in
+                            HStack(spacing: 8) {
+                                Image(systemName: "building.2")
+                                    .font(.caption2)
+                                    .foregroundColor(.blue)
+                                Text(tenant)
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                    .padding(12)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(10)
+                }
+
                 if let facts = story.funFacts, !facts.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Fun Facts")
