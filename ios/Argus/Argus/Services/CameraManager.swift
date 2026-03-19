@@ -5,6 +5,7 @@ import Observation
 @Observable
 class CameraManager: NSObject {
     var isRunning = false
+    var errorMessage: String?
 
     let session = AVCaptureSession()
     private let output = AVCaptureVideoDataOutput()
@@ -14,12 +15,40 @@ class CameraManager: NSObject {
     var onFrame: (@Sendable (CMSampleBuffer) -> Void)?
 
     func setup() {
+        // Check permission first
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            startSession()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                if granted {
+                    self.startSession()
+                } else {
+                    Task { @MainActor in
+                        self.errorMessage = "Camera access denied"
+                    }
+                }
+            }
+        default:
+            Task { @MainActor in
+                self.errorMessage = "Camera access denied. Go to Settings → Argus → Camera"
+            }
+        }
+    }
+
+    private func startSession() {
         queue.async { [self] in
             session.beginConfiguration()
             session.sessionPreset = .high
 
-            guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
-                  let input = try? AVCaptureDeviceInput(device: device) else {
+            guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back) else {
+                Task { @MainActor in self.errorMessage = "No back camera found" }
+                session.commitConfiguration()
+                return
+            }
+
+            guard let input = try? AVCaptureDeviceInput(device: device) else {
+                Task { @MainActor in self.errorMessage = "Cannot create camera input" }
                 session.commitConfiguration()
                 return
             }
@@ -35,6 +64,7 @@ class CameraManager: NSObject {
 
             Task { @MainActor in
                 self.isRunning = true
+                self.errorMessage = nil
             }
         }
     }

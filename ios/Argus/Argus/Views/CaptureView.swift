@@ -13,6 +13,23 @@ struct CaptureView: View {
                 .ignoresSafeArea()
 
             VStack {
+                // Debug info
+                if let error = camera.errorMessage {
+                    Text(error)
+                        .font(.caption)
+                        .padding(8)
+                        .background(Color.red.opacity(0.9))
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                } else if !camera.isRunning {
+                    Text("Starting camera...")
+                        .font(.caption)
+                        .padding(8)
+                        .background(Color.orange.opacity(0.9))
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+
                 HStack(spacing: 12) {
                     ForEach(["drive", "point", "watch"], id: \.self) { m in
                         Button(m.capitalized) {
@@ -25,7 +42,7 @@ struct CaptureView: View {
                         .cornerRadius(20)
                     }
                 }
-                .padding(.top, 60)
+                .padding(.top, 20)
 
                 Spacer()
 
@@ -39,6 +56,7 @@ struct CaptureView: View {
                         .transition(.move(edge: .bottom))
                 }
             }
+            .padding(.top, 60)
         }
         .onAppear {
             camera.setup()
