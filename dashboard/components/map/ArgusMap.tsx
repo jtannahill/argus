@@ -73,7 +73,7 @@ export default function ArgusMap() {
 
   return (
     <div className="relative w-full h-full">
-      <div className="absolute top-4 right-4 z-10 flex gap-2">
+      <div className="absolute top-4 right-32 z-10 flex gap-2">
         <button
           onClick={() => setMode('live')}
           className={`px-4 py-2 rounded text-sm font-medium ${mode === 'live' ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300'}`}
