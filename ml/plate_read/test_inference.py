@@ -17,10 +17,11 @@ def test_preprocess_returns_correct_shape():
 
 def test_postprocess_extracts_plate_text():
     from inference import decode_ctc_output
-    # Simulate CTC output — known character indices
-    # 0=blank, 1='A', 2='B', 3='C', 4='1', 5='2', 6='3', 7='4'
-    # "ABC1234" = [1,2,3,4,5,6,7] with blanks between
-    mock_output = np.array([[1,0,2,0,3,0,4,0,5,0,6,0,7]])
-    charset = '_ABC1234'
+    # Simulate CTC output — known character indices in CHARSET
+    # CHARSET = '_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    # A=1, B=2, C=3, 0=27, 1=28, 2=29, 3=30, 4=31
+    # "ABC1234" = [1,2,3,28,29,30,31] with blanks between
+    mock_output = np.array([[1,0,2,0,3,0,28,0,29,0,30,0,31]])
+    charset = '_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
     result = decode_ctc_output(mock_output, charset)
     assert result == 'ABC1234'
