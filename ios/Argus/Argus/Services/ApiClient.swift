@@ -13,6 +13,13 @@ class ApiClient {
     func setToken(_ token: String) { self.token = token }
 
     func presign(capture: Capture) async throws -> PresignResponse {
+        guard !baseUrl.isEmpty else {
+            throw ApiError.message("API_URL not set in Info.plist")
+        }
+        guard !token.isEmpty else {
+            throw ApiError.message("No auth token — Cognito login failed")
+        }
+
         var request = URLRequest(url: URL(string: "\(baseUrl)/captures/presign")!)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -28,7 +35,13 @@ class ApiClient {
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, _) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+            let body = String(data: data, encoding: .utf8) ?? "no body"
+            throw ApiError.message("Presign \(http.statusCode): \(body.prefix(200))")
+        }
+
         return try JSONDecoder().decode(PresignResponse.self, from: data)
     }
 
@@ -37,6 +50,21 @@ class ApiClient {
         request.httpMethod = "PUT"
         request.addValue("image/jpeg", forHTTPHeaderField: "Content-Type")
         request.httpBody = imageData
-        let _ = try await URLSession.shared.data(for: request)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        if let http = response as? HTTPURLResponse, http.statusCode >= 400 {
+            let body = String(data: data, encoding: .utf8) ?? "no body"
+            throw ApiError.message("Upload \(http.statusCode): \(body.prefix(200))")
+        }
+    }
+}
+
+enum ApiError: LocalizedError {
+    case message(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .message(let msg): return msg
+        }
     }
 }
