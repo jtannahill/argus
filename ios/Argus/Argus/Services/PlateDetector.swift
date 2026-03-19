@@ -8,6 +8,8 @@ class PlateDetector {
     var lastDetectedPlate: String?
     var lastConfidence: Double = 0
     var boundingBox: CGRect?  // Vision normalized coords (0-1, origin bottom-left)
+    var smoothedBox: CGRect?  // Smoothed for display
+    private let smoothing: CGFloat = 0.3  // 0 = no smoothing, 1 = frozen
 
     private var bestFrameInWindow: (image: CIImage, sharpness: Double, plate: String, confidence: Double)?
     private var windowStart = Date()
@@ -44,6 +46,17 @@ class PlateDetector {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.boundingBox = box
+                if let prev = self.smoothedBox {
+                    let s = self.smoothing
+                    self.smoothedBox = CGRect(
+                        x: prev.origin.x * s + box.origin.x * (1 - s),
+                        y: prev.origin.y * s + box.origin.y * (1 - s),
+                        width: prev.width * s + box.width * (1 - s),
+                        height: prev.height * s + box.height * (1 - s)
+                    )
+                } else {
+                    self.smoothedBox = box
+                }
 
                 let now = Date()
                 if now.timeIntervalSince(self.windowStart) > self.windowDuration {

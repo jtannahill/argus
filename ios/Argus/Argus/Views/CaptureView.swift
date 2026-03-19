@@ -14,7 +14,7 @@ struct CaptureView: View {
 
             // Yellow bounding box
             GeometryReader { geo in
-                if let box = detector.boundingBox {
+                if let box = detector.smoothedBox {
                     let rect = convertBoundingBox(box, in: geo.size)
                     Rectangle()
                         .stroke(Color.yellow, lineWidth: 3)
@@ -34,6 +34,7 @@ struct CaptureView: View {
                     }
                 }
             }
+            .animation(.easeOut(duration: 0.15), value: detector.smoothedBox?.origin.x)
             .ignoresSafeArea()
 
             VStack {
