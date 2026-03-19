@@ -6,8 +6,8 @@ struct ExploreMapView: View {
     @State private var selectedBuilding: BuildingCandidate?
     @State private var showSheet = false
 
-    // TODO: Populate from local storage / API
     @State private var scannedBuildings: [BuildingCandidate] = []
+    @State private var pinnedBuildings: [BuildingCandidate] = []
 
     var body: some View {
         Map(position: $position) {
@@ -33,6 +33,24 @@ struct ExploreMapView: View {
                     }
                 }
             }
+
+            ForEach(pinnedBuildings) { building in
+                if let profile = building.profile,
+                   let lat = profile.latitude,
+                   let lon = profile.longitude {
+                    Annotation(building.address, coordinate: CLLocationCoordinate2D(latitude: lat, longitude: lon)) {
+                        Button {
+                            selectedBuilding = building
+                            showSheet = true
+                        } label: {
+                            Image(systemName: "mappin.circle.fill")
+                                .font(.system(size: 20))
+                                .foregroundColor(.green)
+                                .shadow(radius: 3)
+                        }
+                    }
+                }
+            }
         }
         .mapStyle(.standard(elevation: .realistic))
         .mapControls {
@@ -46,6 +64,18 @@ struct ExploreMapView: View {
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
             }
+        }
+        .task {
+            await loadPinnedBuildings()
+        }
+    }
+
+    private func loadPinnedBuildings() async {
+        await AuthManager.shared.ensureToken()
+        do {
+            pinnedBuildings = try await ApiClient.shared.getPinnedBuildings()
+        } catch {
+            // Pinned buildings unavailable — continue with empty list
         }
     }
 

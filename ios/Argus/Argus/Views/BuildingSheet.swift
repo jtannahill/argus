@@ -23,14 +23,30 @@ struct BuildingSheet: View {
     @State private var selectedTab: BuildingTab = .story
     @State private var detail: BuildingDetail?
     @State private var isLoading = false
+    @State private var isPinned = false
+    @State private var isPinning = false
 
     var body: some View {
         VStack(spacing: 0) {
             // Header
             VStack(alignment: .leading, spacing: 6) {
-                Text(building.address)
-                    .font(.system(size: 20, weight: .bold))
-                    .lineLimit(2)
+                HStack(alignment: .top) {
+                    Text(building.address)
+                        .font(.system(size: 20, weight: .bold))
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Button {
+                        Task { await togglePin() }
+                    } label: {
+                        Image(systemName: isPinned ? "mappin.circle.fill" : "mappin.circle")
+                            .font(.system(size: 26))
+                            .foregroundColor(isPinned ? .green : .secondary)
+                            .opacity(isPinning ? 0.5 : 1.0)
+                    }
+                    .disabled(isPinning)
+                    .accessibilityLabel(isPinned ? "Unpin building" : "Pin building")
+                }
 
                 HStack(spacing: 10) {
                     if let profile = building.profile ?? detail?.profile {
