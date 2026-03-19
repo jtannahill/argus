@@ -6,8 +6,8 @@ class AuthManager {
     static let shared = AuthManager()
 
     private let clientId = "7fbvjg0d8rcgi550j7pdvaljfp"
-    private let username = "argus@plocamium.ventures"
-    private let password = "ArgusField2026!"
+    private let username = "james@plocamium.ventures"
+    private let password = "ArgusNYC2026!"
     private let poolRegion = "us-east-1"
 
     private(set) var token: String = ""
