@@ -65,6 +65,17 @@ struct CaptureView: View {
 
                 Spacer()
 
+                // Error display
+                if let err = OfflineQueue.shared.lastError {
+                    Text(err)
+                        .font(.caption2)
+                        .padding(6)
+                        .background(Color.red.opacity(0.9))
+                        .foregroundColor(.white)
+                        .cornerRadius(6)
+                        .padding(.horizontal)
+                }
+
                 // Status bar
                 HStack {
                     if location.hasLocation {
@@ -79,6 +90,10 @@ struct CaptureView: View {
                         Text("• \(OfflineQueue.shared.pendingCount) pending")
                             .font(.caption)
                             .foregroundColor(.orange)
+                    }
+                    if OfflineQueue.shared.isSyncing {
+                        ProgressView()
+                            .scaleEffect(0.7)
                     }
                 }
                 .padding(.bottom, 8)

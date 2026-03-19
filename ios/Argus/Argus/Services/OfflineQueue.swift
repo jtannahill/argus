@@ -1,14 +1,17 @@
 import Foundation
 import Network
-import Combine
+import Observation
 
+@Observable
 @MainActor
-class OfflineQueue: ObservableObject {
+class OfflineQueue {
     static let shared = OfflineQueue()
+    var isOnline = true
+    var lastError: String?
+    var isSyncing = false
+
     private let monitor = NWPathMonitor()
     private let monitorQueue = DispatchQueue(label: "offline.queue.monitor")
-    @Published var isOnline = true
-
     private var pendingCaptures: [(capture: Capture, plateImage: Data, vehicleImage: Data)] = []
 
     init() {
@@ -27,6 +30,7 @@ class OfflineQueue: ObservableObject {
     func enqueue(capture: Capture, plateImage: Data, vehicleImage: Data) {
         pendingCaptures.append((capture, plateImage, vehicleImage))
         pendingCaptures.sort { $0.capture.timestamp < $1.capture.timestamp }
+        lastError = nil
 
         if isOnline {
             syncPending()
@@ -34,9 +38,15 @@ class OfflineQueue: ObservableObject {
     }
 
     private func syncPending() {
+        guard !isSyncing else { return }
         let toSync = pendingCaptures
+        guard !toSync.isEmpty else { return }
+        isSyncing = true
 
         Task {
+            // Ensure we have a valid token
+            await AuthManager.shared.ensureToken()
+
             for item in toSync {
                 do {
                     let response = try await ApiClient.shared.presign(capture: item.capture)
@@ -44,10 +54,13 @@ class OfflineQueue: ObservableObject {
                     try await ApiClient.shared.uploadImage(item.vehicleImage, to: response.vehicleUploadUrl)
 
                     pendingCaptures.removeAll { $0.capture.id == item.capture.id }
+                    lastError = nil
                 } catch {
+                    lastError = error.localizedDescription
                     break
                 }
             }
+            isSyncing = false
         }
     }
 
