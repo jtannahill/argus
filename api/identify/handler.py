@@ -105,6 +105,27 @@ def lambda_handler(event, context):
         except (TypeError, ValueError):
             dist = 0
 
+        # Calculate air rights (unused FAR)
+        try:
+            built_far = float(candidate.get('builtfar', 0) or 0)
+            max_far = float(candidate.get('residfar', 0) or candidate.get('commfar', 0) or candidate.get('facilfar', 0) or 0)
+            lot_area = float(candidate.get('lotarea', 0) or 0)
+            unused_far = max(0, max_far - built_far)
+            air_rights_sqft = int(unused_far * lot_area) if lot_area > 0 else 0
+        except (TypeError, ValueError):
+            unused_far = 0
+            air_rights_sqft = 0
+
+        # Detect diplomatic/government ownership
+        owner_name = candidate.get('ownername', '') or ''
+        exempt_total = candidate.get('exempttot', '0') or '0'
+        try:
+            is_tax_exempt = float(exempt_total) > 0
+        except (TypeError, ValueError):
+            is_tax_exempt = False
+
+        diplomatic_signals = _detect_diplomatic(owner_name, is_tax_exempt)
+
         entry = {
             'id': bbl,
             'bbl': bbl,
@@ -120,7 +141,7 @@ def lambda_handler(event, context):
                 'buildingClass': candidate.get('bldgclass', ''),
                 'zoneDist': candidate.get('zonedist1', ''),
                 'far': candidate.get('builtfar', ''),
-                'maxFar': candidate.get('residfar', ''),
+                'maxFar': str(max_far) if max_far else candidate.get('residfar', ''),
                 'landmark': candidate.get('landmark', ''),
                 'landmarkName': candidate.get('landmkname', ''),
                 'architect': None,
@@ -130,6 +151,11 @@ def lambda_handler(event, context):
                 'taxClass': candidate.get('taxclass', ''),
                 'latitude': blat,
                 'longitude': blon,
+                'ownerName': owner_name,
+                'airRightsSqft': air_rights_sqft,
+                'unusedFar': round(unused_far, 2),
+                'isTaxExempt': is_tax_exempt,
+                'diplomaticStatus': diplomatic_signals,
             },
         }
 
@@ -212,6 +238,8 @@ def _generate_story(entry, table, pk):
         units = profile.get('units', '')
         res_units = profile.get('residentialUnits', '0')
         is_commercial = res_units in ('0', '', None) and units
+        diplo = entry.get('profile', {}).get('diplomaticStatus', {})
+        air_sqft = entry.get('profile', {}).get('airRightsSqft', 0)
 
         prompt = (
             f"You are a knowledgeable NYC building expert. Write a brief, engaging profile of this building.\n\n"
@@ -219,7 +247,10 @@ def _generate_story(entry, table, pk):
             f"Building Class: {bldg_class}\nZoning: {zone}\nUnits: {units}\n"
             f"{'Landmark: ' + landmark if landmark else ''}\n"
             f"{'Current Owner: ' + owner if owner else ''}\n"
-            f"{'Type: Commercial (0 residential units)' if is_commercial else ''}\n\n"
+            f"{'Type: Commercial (0 residential units)' if is_commercial else ''}\n"
+            f"{'DIPLOMATIC/FOREIGN GOVERNMENT PROPERTY — owned by: ' + owner if diplo.get('isDiplomatic') else ''}\n"
+            f"{'GOVERNMENT PROPERTY — ' + owner if diplo.get('isGovernment') and not diplo.get('isDiplomatic') else ''}\n"
+            f"{'Air Rights: ' + str(air_sqft) + ' sq ft of unused development rights' if air_sqft > 0 else ''}\n\n"
             f'Respond in JSON: {{"headline": "one-line hook under 80 chars", '
             f'"narrative": "2-3 paragraph engaging story covering history, architecture, and neighborhood context'
             f'{". Include notable current or past tenants, businesses, or retail if known" if is_commercial else ""}'
@@ -271,6 +302,44 @@ def _generate_story(entry, table, pk):
         return story
     except Exception:
         return None
+
+
+def _detect_diplomatic(owner_name: str, is_tax_exempt: bool) -> dict:
+    """Detect if a building has diplomatic/foreign government ownership signals."""
+    owner_upper = owner_name.upper()
+
+    # Known patterns for foreign government ownership
+    diplomatic_keywords = [
+        'CONSULATE', 'CONSUL', 'EMBASSY', 'MISSION', 'DELEGATION',
+        'PERMANENT MISSION', 'REPUBLIC OF', 'KINGDOM OF', 'STATE OF',
+        'GOVERNMENT OF', 'PEOPLES REPUBLIC', "PEOPLE'S REPUBLIC",
+        'UNITED NATIONS', 'DIPLOMATIC', 'FOREIGN MINISTRY',
+    ]
+
+    government_keywords = [
+        'CITY OF NEW YORK', 'NYC', 'STATE OF NEW YORK', 'NYS',
+        'UNITED STATES', 'US GOVERNMENT', 'FEDERAL', 'USPS',
+        'MTA', 'PORT AUTHORITY', 'HOUSING AUTHORITY', 'NYCHA',
+    ]
+
+    is_diplomatic = any(kw in owner_upper for kw in diplomatic_keywords)
+    is_government = any(kw in owner_upper for kw in government_keywords)
+
+    status = None
+    if is_diplomatic:
+        status = 'diplomatic'
+    elif is_government:
+        status = 'government'
+    elif is_tax_exempt and owner_upper and not any(c.isdigit() for c in owner_upper[:3]):
+        status = 'tax_exempt'
+
+    return {
+        'status': status,
+        'isDiplomatic': is_diplomatic,
+        'isGovernment': is_government,
+        'isTaxExempt': is_tax_exempt,
+        'ownerName': owner_name,
+    }
 
 
 def _convert_decimals(obj):

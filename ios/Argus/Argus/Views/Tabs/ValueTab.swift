@@ -96,6 +96,88 @@ struct ValueTab: View {
                 .background(Color(.systemGray6))
                 .cornerRadius(10)
 
+                // Ownership & Diplomatic
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Ownership")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.green)
+
+                    if let owner = profile.ownerName, !owner.isEmpty {
+                        HStack {
+                            Text("Owner")
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text(owner)
+                                .font(.system(size: 13, weight: .medium))
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
+
+                    if let diplo = profile.diplomaticStatus {
+                        if diplo.isDiplomatic == true {
+                            HStack(spacing: 6) {
+                                Image(systemName: "flag.fill")
+                                    .foregroundColor(.red)
+                                Text("Diplomatic / Foreign Government Property")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.red)
+                            }
+                        } else if diplo.isGovernment == true {
+                            HStack(spacing: 6) {
+                                Image(systemName: "building.columns.fill")
+                                    .foregroundColor(.blue)
+                                Text("Government Property")
+                                    .font(.system(size: 13, weight: .bold))
+                                    .foregroundColor(.blue)
+                            }
+                        }
+
+                        if diplo.isTaxExempt == true {
+                            HStack {
+                                Text("Tax Status")
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text("TAX EXEMPT")
+                                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                                    .foregroundColor(.orange)
+                            }
+                        }
+                    }
+                }
+                .padding(12)
+                .background(Color(.systemGray6))
+                .cornerRadius(10)
+
+                // Air Rights
+                if let airSqft = profile.airRightsSqft, airSqft > 0 {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Air Rights")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.green)
+
+                        HStack {
+                            Text("Unused Development")
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            Text("\(airSqft.formatted()) sq ft")
+                                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                        }
+
+                        if let unused = profile.unusedFar, unused > 0 {
+                            HStack {
+                                Text("Unused FAR")
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                Text(String(format: "%.2f", unused))
+                                    .font(.system(size: 14, design: .monospaced))
+                            }
+                        }
+                    }
+                    .padding(12)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(10)
+                }
+
                 // Building Details
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Building")

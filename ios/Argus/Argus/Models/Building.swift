@@ -35,6 +35,19 @@ struct BuildingProfile: Codable {
     let taxClass: String?
     let latitude: Double?
     let longitude: Double?
+    let ownerName: String?
+    let airRightsSqft: Int?
+    let unusedFar: Double?
+    let isTaxExempt: Bool?
+    let diplomaticStatus: DiplomaticStatus?
+}
+
+struct DiplomaticStatus: Codable {
+    let status: String?       // "diplomatic", "government", "tax_exempt", or null
+    let isDiplomatic: Bool?
+    let isGovernment: Bool?
+    let isTaxExempt: Bool?
+    let ownerName: String?
 }
 
 struct BuildingStory: Codable {
