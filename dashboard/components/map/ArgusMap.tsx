@@ -4,6 +4,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { createWebSocket } from '@/lib/websocket';
+import PlotMode from './PlotMode';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
@@ -86,6 +87,7 @@ export default function ArgusMap() {
           Plot
         </button>
       </div>
+      {mode === 'plot' && map.current && <PlotMode map={map.current} />}
       <div ref={mapContainer} className="w-full h-full" />
     </div>
   );
