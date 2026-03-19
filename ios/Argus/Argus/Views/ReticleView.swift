@@ -4,6 +4,7 @@ struct ReticleView: View {
     let isIdentifying: Bool
     let hasResult: Bool
     let coneWidth: String
+    var distance: Double? = nil  // meters to identified building
 
     private var ringColor: Color {
         if hasResult { return .green }
@@ -18,6 +19,7 @@ struct ReticleView: View {
         case "Street": return 90
         case "Block": return 60
         case "Far": return 40
+        case "Skyline": return 24
         default: return 90
         }
     }
@@ -72,11 +74,28 @@ struct ReticleView: View {
                     )
             }
 
-            // Mode label below reticle
-            Text(coneWidth.uppercased())
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                .foregroundColor(ringColor)
-                .offset(y: ringSize * 0.5 + ringSize * 0.15 + 20)
+            // Mode + distance labels below reticle
+            VStack(spacing: 2) {
+                Text(coneWidth.uppercased())
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundColor(ringColor)
+
+                if let dist = distance, dist > 0 {
+                    Text(formatDistance(dist))
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.white)
+                }
+            }
+            .offset(y: ringSize * 0.5 + ringSize * 0.15 + 20)
+        }
+    }
+
+    private func formatDistance(_ meters: Double) -> String {
+        if meters < 1000 {
+            return "\(Int(meters))m"
+        } else {
+            let miles = meters / 1609.34
+            return String(format: "%.1f mi", miles)
         }
     }
 }

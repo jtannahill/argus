@@ -14,6 +14,7 @@ struct ScanView: View {
         ("Nearby", 30, "figure.walk"),
         ("Street", 100, "road.lanes"),
         ("Block", 300, "map"),
+        ("Skyline", 8000, "sparkles"),
         ("Far", 800, "binoculars"),
     ]
 
@@ -26,7 +27,8 @@ struct ScanView: View {
             ReticleView(
                 isIdentifying: identifier.isIdentifying,
                 hasResult: identifier.currentBuilding != nil,
-                coneWidth: radiusOptions[radiusIndex].label
+                coneWidth: radiusOptions[radiusIndex].label,
+                distance: identifier.currentBuilding?.distance
             )
 
             // Air rights ghost building overlay

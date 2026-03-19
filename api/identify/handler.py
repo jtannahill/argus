@@ -70,19 +70,23 @@ def lambda_handler(event, context):
     # Narrow the heading cone as distance grows so far-mode identifies
     # the specific building you're pointing at rather than everything in
     # a half-mile arc.
-    #   30 m  → 90°  (wide, you're right next to it)
-    #   100 m → 45°  (street level)
-    #   300 m → 20°  (across the block)
-    #   800 m → 8°   (skyline sniper mode)
+    #   30 m   → 90°  (wide, you're right next to it)
+    #   100 m  → 45°  (street level)
+    #   300 m  → 20°  (across the block)
+    #   800 m  → 8°   (far sniper mode)
+    #   8000 m → 3°   (skyline mode — only skyscrapers visible)
     # A caller may override by sending an explicit `cone` parameter.
+    is_skyline = radius > 2000
     if radius <= 30:
         default_cone = 90.0
     elif radius <= 100:
         default_cone = 45.0
     elif radius <= 300:
         default_cone = 20.0
-    else:
+    elif radius <= 1000:
         default_cone = 8.0
+    else:
+        default_cone = 3.0  # Skyline: laser-tight
     cone = float(body.get('cone', default_cone))
 
     provider = NYCDataProvider()

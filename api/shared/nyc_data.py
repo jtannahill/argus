@@ -184,13 +184,18 @@ class NYCDataProvider:
         min_lon = lon - lon_offset
         max_lon = lon + lon_offset
 
+        # Skyline mode (>2km): only query tall buildings to keep results manageable
+        is_skyline = radius_m > 2000
+        height_filter = " AND numfloors >= '15'" if is_skyline else ""
+
         where = (
             f"latitude >= '{min_lat}' AND latitude <= '{max_lat}' "
             f"AND longitude >= '{min_lon}' AND longitude <= '{max_lon}'"
+            f"{height_filter}"
         )
 
         url = f"{SOCRATA_BASE}/{DATASETS['PLUTO']}.json"
-        query_limit = 200 if radius_m > 200 else 50
+        query_limit = 500 if is_skyline else (200 if radius_m > 200 else 50)
         params = {"$where": where, "$limit": query_limit}
         if self.socrata_token:
             params["$$app_token"] = self.socrata_token
