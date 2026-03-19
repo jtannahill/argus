@@ -1,14 +1,21 @@
 import * as cdk from 'aws-cdk-lib';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { Template } from 'aws-cdk-lib/assertions';
 import { DataStack } from '../lib/data-stack';
+import { ApiStack } from '../lib/api-stack';
 import { EnrichmentStack } from '../lib/enrichment-stack';
 
 describe('EnrichmentStack', () => {
   const app = new cdk.App();
   const dataStack = new DataStack(app, 'TestEnrichmentData');
+  const apiStack = new ApiStack(app, 'TestEnrichmentApi', {
+    table: dataStack.table,
+    capturesBucket: dataStack.capturesBucket,
+  });
   const enrichmentStack = new EnrichmentStack(app, 'TestEnrichment', {
     table: dataStack.table,
     capturesBucket: dataStack.capturesBucket,
+    notifyFn: apiStack.notifyFn,
   });
   const template = Template.fromStack(enrichmentStack);
 

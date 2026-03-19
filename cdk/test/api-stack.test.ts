@@ -27,8 +27,8 @@ describe('ApiStack', () => {
     });
   });
 
-  test('creates 5 Lambda functions (presign + plates + search + geofences + alerts)', () => {
-    template.resourceCountIs('AWS::Lambda::Function', 5);
+  test('creates 8 Lambda functions (presign + plates + search + geofences + alerts + ws connect + ws disconnect + ws notify)', () => {
+    template.resourceCountIs('AWS::Lambda::Function', 8);
   });
 
   test('creates API routes for plates, search, geofences, alerts', () => {
@@ -44,5 +44,32 @@ describe('ApiStack', () => {
     expect(resourcePaths).toContain('alerts');
     expect(resourcePaths).toContain('sightings');
     expect(resourcePaths).toContain('{id}');
+  });
+
+  test('creates WebSocket API with WEBSOCKET protocol', () => {
+    template.hasResourceProperties('AWS::ApiGatewayV2::Api', {
+      ProtocolType: 'WEBSOCKET',
+      RouteSelectionExpression: '$request.body.action',
+    });
+  });
+
+  test('creates WebSocket $connect and $disconnect routes', () => {
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      RouteKey: '$connect',
+    });
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      RouteKey: '$disconnect',
+    });
+  });
+
+  test('creates WebSocket prod stage with autoDeploy', () => {
+    template.hasResourceProperties('AWS::ApiGatewayV2::Stage', {
+      StageName: 'prod',
+      AutoDeploy: true,
+    });
+  });
+
+  test('exports WebSocketUrl output', () => {
+    template.hasOutput('WebSocketUrl', {});
   });
 });

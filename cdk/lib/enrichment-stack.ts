@@ -11,6 +11,7 @@ import { Construct } from 'constructs';
 interface EnrichmentStackProps extends cdk.StackProps {
   table: dynamodb.Table;
   capturesBucket: s3.Bucket;
+  notifyFn: lambda.Function;
 }
 
 export class EnrichmentStack extends cdk.Stack {
@@ -131,10 +132,16 @@ export class EnrichmentStack extends cdk.Stack {
       outputPath: '$.Payload',
     });
 
-    // Chain the state machine
+    // Notify Lambda task — push enrichment results + alerts to WebSocket clients
+    const notifyTask = new tasks.LambdaInvoke(this, 'NotifyClients', {
+      lambdaFunction: props.notifyFn,
+      outputPath: '$.Payload',
+    });
+
+    // Chain the state machine: parallel → restructure → merge → pattern → notify
     this.stateMachine = new sfn.StateMachine(this, 'EnrichmentStateMachine', {
       definitionBody: sfn.DefinitionBody.fromChainable(
-        parallel.next(restructure).next(mergeTask).next(patternTask),
+        parallel.next(restructure).next(mergeTask).next(patternTask).next(notifyTask),
       ),
       timeout: cdk.Duration.minutes(5),
     });
