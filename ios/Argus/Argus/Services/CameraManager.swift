@@ -7,7 +7,7 @@ class CameraManager: NSObject, ObservableObject {
     private let output = AVCaptureVideoDataOutput()
     private let queue = DispatchQueue(label: "camera.queue")
 
-    nonisolated var onFrame: (@Sendable (CMSampleBuffer) -> Void)?
+    var onFrame: (@Sendable (CMSampleBuffer) -> Void)?
 
     func setup() {
         session.sessionPreset = .high
