@@ -4,8 +4,8 @@ import os
 import unittest
 from unittest.mock import MagicMock, patch
 
-# Ensure shared is importable
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+# Ensure the enrichment module is importable
+sys.path.insert(0, os.path.dirname(__file__))
 
 from merge_results import _cross_validate
 

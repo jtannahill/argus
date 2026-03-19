@@ -1,6 +1,10 @@
 """Tests for vehicle classifier inference."""
 
+import os
+import sys
 import numpy as np
+
+sys.path.insert(0, os.path.dirname(__file__))
 
 
 def test_preprocess_returns_correct_shape():

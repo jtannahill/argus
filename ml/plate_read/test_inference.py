@@ -1,8 +1,12 @@
 """Tests for plate read inference handler."""
 
+import os
+import sys
 import pytest
 import numpy as np
 from unittest.mock import MagicMock, patch
+
+sys.path.insert(0, os.path.dirname(__file__))
 
 
 def test_preprocess_returns_correct_shape():

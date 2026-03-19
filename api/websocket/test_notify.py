@@ -5,7 +5,7 @@ import os
 import sys
 from unittest.mock import MagicMock, patch
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.dirname(__file__))
 os.environ['TABLE_NAME'] = 'test-table'
 os.environ['WEBSOCKET_ENDPOINT'] = 'https://ws.example.com/prod'
 
