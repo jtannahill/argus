@@ -8,6 +8,7 @@ struct ScanView: View {
     @State private var showSheet = false
     @State private var showAddressSearch = false
     @State private var radiusIndex = 1  // 0=nearby, 1=street, 2=block, 3=far
+    @State private var showAirRights = false
 
     private let radiusOptions: [(label: String, meters: Double, icon: String)] = [
         ("Nearby", 30, "figure.walk"),
@@ -27,6 +28,16 @@ struct ScanView: View {
                 hasResult: identifier.currentBuilding != nil,
                 coneWidth: radiusOptions[radiusIndex].label
             )
+
+            // Air rights ghost building overlay
+            if showAirRights,
+               let profile = identifier.currentBuilding?.profile,
+               let airRights = profile.airRightsSqft, airRights > 0 {
+                AirRightsOverlay(profile: profile)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                    .animation(.easeInOut(duration: 0.3), value: showAirRights)
+            }
 
             VStack {
                 // Top status
@@ -117,6 +128,32 @@ struct ScanView: View {
 
                     Spacer()
 
+                    // Air rights toggle button — only active when a building is identified
+                    let hasAirRights = (identifier.currentBuilding?.profile?.airRightsSqft ?? 0) > 0
+                    Button {
+                        if hasAirRights {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                showAirRights.toggle()
+                            }
+                        }
+                    } label: {
+                        VStack(spacing: 2) {
+                            Image(systemName: showAirRights ? "building.fill" : "building")
+                                .font(.system(size: 14, weight: .semibold))
+                            Text("AIR")
+                                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                        }
+                        .frame(width: 44, height: 44)
+                        .foregroundColor(showAirRights ? .black : (hasAirRights ? .white : .gray))
+                        .background(showAirRights ? Color.green : (hasAirRights ? Color.black.opacity(0.6) : Color.black.opacity(0.3)))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(showAirRights ? Color.green : Color.white.opacity(hasAirRights ? 0.3 : 0.1), lineWidth: 1)
+                        )
+                    }
+                    .disabled(!hasAirRights)
+
                     // Refresh button
                     Button {
                         guard location.hasLocation else { return }
@@ -204,6 +241,13 @@ struct ScanView: View {
         .onChange(of: identifier.currentBuilding?.bbl) { _, newValue in
             if newValue != nil {
                 showSheet = true
+            }
+            // Auto-dismiss air rights overlay if new building has no air rights data
+            if showAirRights {
+                let hasAirRights = (identifier.currentBuilding?.profile?.airRightsSqft ?? 0) > 0
+                if !hasAirRights {
+                    withAnimation(.easeInOut(duration: 0.25)) { showAirRights = false }
+                }
             }
         }
         .sheet(isPresented: $showSheet) {
