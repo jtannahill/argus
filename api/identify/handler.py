@@ -70,18 +70,18 @@ def lambda_handler(event, context):
     # the specific building you're pointing at rather than everything in
     # a half-mile arc.
     #   30 m  → 90°  (wide, you're right next to it)
-    #   100 m → 60°  (street level)
-    #   300 m → 30°  (across the block)
-    #   800 m → 15°  (far / binoculars mode)
+    #   100 m → 45°  (street level)
+    #   300 m → 20°  (across the block)
+    #   800 m → 8°   (skyline sniper mode)
     # A caller may override by sending an explicit `cone` parameter.
     if radius <= 30:
         default_cone = 90.0
     elif radius <= 100:
-        default_cone = 60.0
+        default_cone = 45.0
     elif radius <= 300:
-        default_cone = 30.0
+        default_cone = 20.0
     else:
-        default_cone = 15.0
+        default_cone = 8.0
     cone = float(body.get('cone', default_cone))
 
     provider = NYCDataProvider()

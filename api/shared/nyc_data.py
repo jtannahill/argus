@@ -186,17 +186,30 @@ class NYCDataProvider:
         # Filter by heading cone
         filtered = self._filter_by_heading(lat, lon, heading, candidates, cone_degrees=cone_degrees)
 
-        # Sort by distance and return top 3
-        def distance_key(b: Dict[str, Any]) -> float:
+        # At long range, sort by heading alignment (closest to center of aim)
+        # At short range, sort by distance (closest building)
+        is_far = cone_degrees <= 20
+        for b in filtered:
             try:
                 blat = float(b.get("latitude", lat))
                 blon = float(b.get("longitude", lon))
-                return self._haversine(lat, lon, blat, blon)
+                b["_distance"] = self._haversine(lat, lon, blat, blon)
+                bearing = self._bearing(lat, lon, blat, blon)
+                b["_angle_diff"] = abs((bearing - heading + 180) % 360 - 180)
             except (TypeError, ValueError):
-                return float("inf")
+                b["_distance"] = float("inf")
+                b["_angle_diff"] = 180.0
 
-        filtered.sort(key=distance_key)
-        return filtered[:3]
+        if is_far:
+            # Far mode: prioritize heading alignment, break ties by distance
+            filtered.sort(key=lambda b: (b.get("_angle_diff", 180), b.get("_distance", float("inf"))))
+        else:
+            # Near mode: prioritize distance
+            filtered.sort(key=lambda b: b.get("_distance", float("inf")))
+
+        # Return more candidates at far range (harder to nail the exact one)
+        max_results = 5 if is_far else 3
+        return filtered[:max_results]
 
     def get_profile(self, bbl: str) -> Optional[Dict[str, Any]]:
         """Fetch PLUTO record for a building by BBL.
