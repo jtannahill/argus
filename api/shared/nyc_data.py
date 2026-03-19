@@ -1,0 +1,392 @@
+"""NYC data provider for Argus building intelligence.
+
+Queries NYC public APIs (PLUTO, ACRIS, DOB, HPD, LPC, DOF) via the
+Socrata open data platform. All data is keyed by BBL (Borough/Block/Lot).
+"""
+
+import math
+import os
+from typing import Any, Dict, List, Optional, Tuple
+
+import requests
+
+# Socrata open data base URL
+SOCRATA_BASE = "https://data.cityofnewyork.us/resource"
+
+# Socrata dataset IDs
+DATASETS = {
+    "PLUTO": "64uk-42ks",
+    "ACRIS": "bnx9-e6tj",
+    "DOB_VIOLATIONS": "3h2n-5cm9",
+    "DOB_PERMITS": "ipu4-2vta",
+    "HPD_VIOLATIONS": "wvxf-dwi5",
+    "LPC": "s2zq-q7et",
+    "DOF": "8y4t-faws",
+}
+
+
+class NYCDataProvider:
+    """Fetches building data from NYC public APIs.
+
+    All geographic queries use the Socrata SoQL API. BBL is the canonical
+    building identifier throughout — a 10-digit string encoding borough (1),
+    block (5), and lot (4).
+    """
+
+    def __init__(
+        self,
+        geoclient_app_id: Optional[str] = None,
+        geoclient_app_key: Optional[str] = None,
+        socrata_token: Optional[str] = None,
+    ):
+        self.geoclient_app_id = geoclient_app_id or os.environ.get(
+            "GEOCLIENT_APP_ID", ""
+        )
+        self.geoclient_app_key = geoclient_app_key or os.environ.get(
+            "GEOCLIENT_APP_KEY", ""
+        )
+        self.socrata_token = socrata_token or os.environ.get("SOCRATA_TOKEN", "")
+
+    # ------------------------------------------------------------------
+    # Public API methods
+    # ------------------------------------------------------------------
+
+    def resolve_location(
+        self,
+        lat: float,
+        lon: float,
+        heading: float,
+        radius_m: float = 50,
+    ) -> List[Dict[str, Any]]:
+        """Find candidate buildings near (lat, lon) within heading cone.
+
+        Queries PLUTO by bounding box derived from radius_m, then filters
+        by heading cone (90° by default) to return only buildings the user
+        is facing. Returns up to 3 candidates sorted by distance.
+
+        Args:
+            lat: User latitude in decimal degrees.
+            lon: User longitude in decimal degrees.
+            heading: User compass heading in degrees (0 = north).
+            radius_m: Bounding box half-side in meters (default 50).
+
+        Returns:
+            List of up to 3 PLUTO records (dicts) sorted by distance.
+        """
+        # Convert radius_m to rough degree offsets
+        lat_offset = radius_m / 111_320.0
+        lon_offset = radius_m / (111_320.0 * math.cos(math.radians(lat)))
+
+        min_lat = lat - lat_offset
+        max_lat = lat + lat_offset
+        min_lon = lon - lon_offset
+        max_lon = lon + lon_offset
+
+        where = (
+            f"latitude >= '{min_lat}' AND latitude <= '{max_lat}' "
+            f"AND longitude >= '{min_lon}' AND longitude <= '{max_lon}'"
+        )
+
+        url = f"{SOCRATA_BASE}/{DATASETS['PLUTO']}.json"
+        params = {"$where": where, "$limit": 50}
+        if self.socrata_token:
+            params["$$app_token"] = self.socrata_token
+
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        candidates = response.json()
+
+        # Filter by heading cone
+        filtered = self._filter_by_heading(lat, lon, heading, candidates)
+
+        # Sort by distance and return top 3
+        def distance_key(b: Dict[str, Any]) -> float:
+            try:
+                blat = float(b.get("latitude", lat))
+                blon = float(b.get("longitude", lon))
+                return self._haversine(lat, lon, blat, blon)
+            except (TypeError, ValueError):
+                return float("inf")
+
+        filtered.sort(key=distance_key)
+        return filtered[:3]
+
+    def get_profile(self, bbl: str) -> Optional[Dict[str, Any]]:
+        """Fetch PLUTO record for a building by BBL.
+
+        Args:
+            bbl: 10-digit BBL string (e.g. "1005430021").
+
+        Returns:
+            PLUTO record dict or None if not found.
+        """
+        url = f"{SOCRATA_BASE}/{DATASETS['PLUTO']}.json"
+        params = {"$where": f"bbl='{bbl.strip()}'", "$limit": 1}
+        if self.socrata_token:
+            params["$$app_token"] = self.socrata_token
+
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        results = response.json()
+        return results[0] if results else None
+
+    def get_ownership(self, bbl: str) -> List[Dict[str, Any]]:
+        """Fetch ownership/deed records from ACRIS for a BBL.
+
+        Args:
+            bbl: 10-digit BBL string.
+
+        Returns:
+            List of ACRIS party records (grantor/grantee on deed transfers).
+        """
+        borough, block, lot = self._parse_bbl(bbl)
+        url = f"{SOCRATA_BASE}/{DATASETS['ACRIS']}.json"
+        params = {
+            "$where": (
+                f"borough='{borough}' AND block='{block}' AND lot='{lot}'"
+            ),
+            "$order": "recorded_datetime DESC",
+            "$limit": 50,
+        }
+        if self.socrata_token:
+            params["$$app_token"] = self.socrata_token
+
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+
+    def get_violations(self, bbl: str) -> Dict[str, List[Dict[str, Any]]]:
+        """Fetch active violations from DOB and HPD for a BBL.
+
+        Makes two API calls (DOB violations + HPD violations) and returns
+        combined results keyed by source.
+
+        Args:
+            bbl: 10-digit BBL string.
+
+        Returns:
+            Dict with keys "dob" and "hpd", each containing a list of records.
+        """
+        borough, block, lot = self._parse_bbl(bbl)
+
+        # DOB violations
+        dob_url = f"{SOCRATA_BASE}/{DATASETS['DOB_VIOLATIONS']}.json"
+        dob_params = {
+            "$where": (
+                f"boro='{borough}' AND block='{block}' AND lot='{lot}'"
+            ),
+            "$limit": 200,
+        }
+        if self.socrata_token:
+            dob_params["$$app_token"] = self.socrata_token
+
+        dob_response = requests.get(dob_url, params=dob_params)
+        dob_response.raise_for_status()
+        dob_violations = dob_response.json()
+
+        # HPD violations
+        hpd_url = f"{SOCRATA_BASE}/{DATASETS['HPD_VIOLATIONS']}.json"
+        hpd_params = {
+            "$where": (
+                f"boroid='{borough}' AND block='{block}' AND lot='{lot}'"
+            ),
+            "$limit": 200,
+        }
+        if self.socrata_token:
+            hpd_params["$$app_token"] = self.socrata_token
+
+        hpd_response = requests.get(hpd_url, params=hpd_params)
+        hpd_response.raise_for_status()
+        hpd_violations = hpd_response.json()
+
+        return {"dob": dob_violations, "hpd": hpd_violations}
+
+    def get_permits(self, bbl: str) -> List[Dict[str, Any]]:
+        """Fetch DOB permit records for a BBL.
+
+        Args:
+            bbl: 10-digit BBL string.
+
+        Returns:
+            List of DOB permit records.
+        """
+        borough, block, lot = self._parse_bbl(bbl)
+        url = f"{SOCRATA_BASE}/{DATASETS['DOB_PERMITS']}.json"
+        params = {
+            "$where": f"block='{block}' AND lot='{lot}'",
+            "$order": "filing_date DESC",
+            "$limit": 100,
+        }
+        if self.socrata_token:
+            params["$$app_token"] = self.socrata_token
+
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+
+    def get_landmarks(self, bbl: str) -> List[Dict[str, Any]]:
+        """Fetch LPC landmark designations for a BBL.
+
+        Args:
+            bbl: 10-digit BBL string.
+
+        Returns:
+            List of LPC landmark records.
+        """
+        url = f"{SOCRATA_BASE}/{DATASETS['LPC']}.json"
+        params = {"$where": f"bbl='{bbl.strip()}'", "$limit": 10}
+        if self.socrata_token:
+            params["$$app_token"] = self.socrata_token
+
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+
+    def get_assessed_value(self, bbl: str) -> Optional[Dict[str, Any]]:
+        """Fetch DOF assessed value for a BBL.
+
+        The DOF dataset (8y4t-faws) uses "parid" as the parcel identifier,
+        which corresponds to the BBL padded to 10 digits.
+
+        Args:
+            bbl: 10-digit BBL string.
+
+        Returns:
+            DOF assessment record dict or None if not found.
+        """
+        url = f"{SOCRATA_BASE}/{DATASETS['DOF']}.json"
+        params = {"$where": f"parid='{bbl.strip()}'", "$limit": 1}
+        if self.socrata_token:
+            params["$$app_token"] = self.socrata_token
+
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        results = response.json()
+        return results[0] if results else None
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _parse_bbl(self, bbl: str) -> Tuple[str, str, str]:
+        """Split a 10-digit BBL into (borough, block, lot) components.
+
+        BBL format: B BBBBB LLLL
+          - 1 digit  borough (1–5)
+          - 5 digits block
+          - 4 digits lot
+
+        Args:
+            bbl: 10-digit BBL string (e.g. "1005430021").
+
+        Returns:
+            Tuple of (borough, block, lot) as zero-padded strings.
+
+        Example:
+            >>> _parse_bbl("1005430021")
+            ("1", "00543", "0021")
+        """
+        bbl = bbl.strip().zfill(10)
+        borough = bbl[0]
+        block = bbl[1:6]
+        lot = bbl[6:10]
+        return borough, block, lot
+
+    def _filter_by_heading(
+        self,
+        user_lat: float,
+        user_lon: float,
+        heading: float,
+        candidates: List[Dict[str, Any]],
+        cone_degrees: float = 90,
+    ) -> List[Dict[str, Any]]:
+        """Filter candidates to those within the heading cone.
+
+        Only buildings whose bearing from the user falls within
+        ±(cone_degrees/2) of the user's heading are returned.
+
+        Args:
+            user_lat: User latitude.
+            user_lon: User longitude.
+            heading: User compass heading in degrees (0 = north, clockwise).
+            candidates: List of building dicts with "latitude"/"longitude".
+            cone_degrees: Full width of the acceptance cone in degrees.
+
+        Returns:
+            Filtered list of buildings within the cone.
+        """
+        half_cone = cone_degrees / 2.0
+        result = []
+
+        for building in candidates:
+            try:
+                blat = float(building.get("latitude", 0))
+                blon = float(building.get("longitude", 0))
+            except (TypeError, ValueError):
+                continue
+
+            bearing = self._bearing(user_lat, user_lon, blat, blon)
+            # Compute angular difference in [0, 180]
+            diff = abs((bearing - heading + 180) % 360 - 180)
+            if diff <= half_cone:
+                result.append(building)
+
+        return result
+
+    def _bearing(
+        self,
+        lat1: float,
+        lon1: float,
+        lat2: float,
+        lon2: float,
+    ) -> float:
+        """Compute the initial compass bearing from point 1 to point 2.
+
+        Args:
+            lat1, lon1: Source coordinates in decimal degrees.
+            lat2, lon2: Target coordinates in decimal degrees.
+
+        Returns:
+            Bearing in degrees [0, 360), where 0 is north, clockwise.
+        """
+        lat1_r = math.radians(lat1)
+        lat2_r = math.radians(lat2)
+        dlon_r = math.radians(lon2 - lon1)
+
+        x = math.sin(dlon_r) * math.cos(lat2_r)
+        y = math.cos(lat1_r) * math.sin(lat2_r) - math.sin(lat1_r) * math.cos(
+            lat2_r
+        ) * math.cos(dlon_r)
+
+        bearing = math.degrees(math.atan2(x, y))
+        return (bearing + 360) % 360
+
+    def _haversine(
+        self,
+        lat1: float,
+        lon1: float,
+        lat2: float,
+        lon2: float,
+    ) -> float:
+        """Compute great-circle distance between two points.
+
+        Args:
+            lat1, lon1: First point in decimal degrees.
+            lat2, lon2: Second point in decimal degrees.
+
+        Returns:
+            Distance in meters.
+        """
+        R = 6_371_000.0  # Earth radius in metres
+
+        phi1 = math.radians(lat1)
+        phi2 = math.radians(lat2)
+        dphi = math.radians(lat2 - lat1)
+        dlambda = math.radians(lon2 - lon1)
+
+        a = (
+            math.sin(dphi / 2) ** 2
+            + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+        )
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        return R * c
