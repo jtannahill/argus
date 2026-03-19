@@ -49,6 +49,7 @@ def test_identify_returns_candidates(mock_get_table, mock_provider_cls):
     """Returns 200 with candidates list when provider finds buildings."""
     provider_instance = MagicMock()
     provider_instance.resolve_location.return_value = SAMPLE_CANDIDATES
+    provider_instance._haversine.return_value = 50.0
     mock_provider_cls.return_value = provider_instance
 
     table_mock = MagicMock()
@@ -64,7 +65,9 @@ def test_identify_returns_candidates(mock_get_table, mock_provider_cls):
     assert 'candidates' in body
     assert len(body['candidates']) == 2
     assert body['candidates'][0]['bbl'] == '1005430021'
-    provider_instance.resolve_location.assert_called_once_with(40.748817, -73.985428, 180.0)
+    provider_instance.resolve_location.assert_called_once_with(
+        40.748817, -73.985428, 180.0, radius_m=100.0, cone_degrees=60.0
+    )
 
 
 @patch('identify.handler.NYCDataProvider')
@@ -92,37 +95,26 @@ def test_identify_requires_lat_lon_heading(mock_get_table, mock_provider_cls):
 @patch('identify.handler.NYCDataProvider')
 @patch('identify.handler.get_table')
 def test_identify_checks_cache(mock_get_table, mock_provider_cls):
-    """Attaches cached_profile and cached_story from DynamoDB when present."""
+    """Uses cached story from DynamoDB when present, skips Bedrock generation."""
     provider_instance = MagicMock()
     provider_instance.resolve_location.return_value = [SAMPLE_CANDIDATES[0]]
+    provider_instance._haversine.return_value = 75.0
     mock_provider_cls.return_value = provider_instance
 
     table_mock = MagicMock()
     mock_get_table.return_value = table_mock
 
-    cached_profile = {
-        'PK': 'BLDG#1005430021',
-        'SK': 'PROFILE',
-        'address': '350 5TH AVE',
-        'floors': 102,
-        'owner': 'EMPIRE STATE REALTY',
-    }
     cached_story = {
         'PK': 'BLDG#1005430021',
         'SK': 'STORY',
+        'headline': 'An Icon',
         'narrative': 'The Empire State Building was completed in 1931.',
-        'generated_at': '2026-03-19T10:00:00Z',
+        'funFacts': ['102 floors'],
+        'generatedAt': '2026-03-19T10:00:00Z',
     }
 
-    def get_item_side_effect(Key):
-        sk = Key.get('SK')
-        if sk == 'PROFILE':
-            return {'Item': cached_profile}
-        if sk == 'STORY':
-            return {'Item': cached_story}
-        return {}
-
-    table_mock.get_item.side_effect = get_item_side_effect
+    # Handler only calls get_item once: for the STORY sk
+    table_mock.get_item.return_value = {'Item': cached_story}
 
     event = _identify_event({'latitude': 40.748817, 'longitude': -73.985428, 'heading': 180.0})
     result = handler.lambda_handler(event, None)
@@ -130,16 +122,12 @@ def test_identify_checks_cache(mock_get_table, mock_provider_cls):
 
     assert result['statusCode'] == 200
     candidate = body['candidates'][0]
-    assert 'cached_profile' in candidate
-    assert candidate['cached_profile']['owner'] == 'EMPIRE STATE REALTY'
-    assert 'cached_story' in candidate
-    assert 'Empire State Building' in candidate['cached_story']['narrative']
+    assert 'story' in candidate
+    assert 'Empire State Building' in candidate['story']['narrative']
+    assert candidate['story']['headline'] == 'An Icon'
 
-    # DynamoDB should have been called twice: once for PROFILE, once for STORY
-    assert table_mock.get_item.call_count == 2
-    call_keys = [c.kwargs['Key'] for c in table_mock.get_item.call_args_list]
-    assert {'PK': 'BLDG#1005430021', 'SK': 'PROFILE'} in call_keys
-    assert {'PK': 'BLDG#1005430021', 'SK': 'STORY'} in call_keys
+    # DynamoDB should have been called once for the STORY lookup
+    assert table_mock.get_item.call_count == 1
 
 
 @patch('identify.handler.NYCDataProvider')
@@ -153,6 +141,7 @@ def test_identify_candidate_without_bbl_skips_cache(mock_get_table, mock_provide
     }
     provider_instance = MagicMock()
     provider_instance.resolve_location.return_value = [no_bbl_candidate]
+    provider_instance._haversine.return_value = 30.0
     mock_provider_cls.return_value = provider_instance
 
     table_mock = MagicMock()

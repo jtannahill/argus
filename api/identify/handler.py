@@ -40,9 +40,27 @@ def lambda_handler(event, context):
 
     radius = float(body.get('radius', 100))  # Default 100m, good for general use
 
+    # Narrow the heading cone as distance grows so far-mode identifies
+    # the specific building you're pointing at rather than everything in
+    # a half-mile arc.
+    #   30 m  → 90°  (wide, you're right next to it)
+    #   100 m → 60°  (street level)
+    #   300 m → 30°  (across the block)
+    #   800 m → 15°  (far / binoculars mode)
+    # A caller may override by sending an explicit `cone` parameter.
+    if radius <= 30:
+        default_cone = 90.0
+    elif radius <= 100:
+        default_cone = 60.0
+    elif radius <= 300:
+        default_cone = 30.0
+    else:
+        default_cone = 15.0
+    cone = float(body.get('cone', default_cone))
+
     provider = NYCDataProvider()
     try:
-        candidates = provider.resolve_location(lat, lon, heading, radius_m=radius)
+        candidates = provider.resolve_location(lat, lon, heading, radius_m=radius, cone_degrees=cone)
     except Exception as exc:
         return _response(502, {'error': f'NYC data provider error: {str(exc)}'})
 
@@ -183,7 +201,7 @@ def _generate_story(entry, table, pk):
             f'", '
             f'"funFacts": ["fact 1", "fact 2", "fact 3"]'
             f'{", " if is_commercial else ""}'
-            f'{"\"notableTenants\": [\"tenant 1\", \"tenant 2\"] or empty list if unknown" if is_commercial else ""}'
+            f'{"notableTenants: [tenant 1, tenant 2] or empty list if unknown" if is_commercial else ""}'
             f'}}\n\n'
             f"Be specific and factual. Only include tenants/businesses you're confident about. "
             f"If not a famous building, focus on architectural style, era, and neighborhood character."
