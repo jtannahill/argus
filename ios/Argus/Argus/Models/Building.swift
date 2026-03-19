@@ -96,6 +96,22 @@ struct Permit: Codable, Identifiable {
     let applicant: String?
 }
 
+// MARK: - Address Search
+
+struct AddressResult: Codable, Identifiable {
+    var id: String { bbl }
+    let bbl: String
+    let address: String
+    let borough: String?
+    let zipCode: String?
+    let latitude: Double?
+    let longitude: Double?
+}
+
+struct AddressSearchResponse: Codable {
+    let results: [AddressResult]
+}
+
 // MARK: - Legacy (kept for OfflineQueue compatibility)
 
 struct PresignResponse: Codable {

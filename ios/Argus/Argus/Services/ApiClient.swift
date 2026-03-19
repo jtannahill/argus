@@ -146,6 +146,34 @@ class ApiClient {
         return try decoder.decode(PinsResponse.self, from: data).buildings
     }
 
+    // MARK: - Address Search
+
+    func searchAddress(query: String) async throws -> [AddressResult] {
+        guard !baseUrl.isEmpty else {
+            throw ApiError.message("API_URL not set in Info.plist")
+        }
+        guard !token.isEmpty else {
+            throw ApiError.message("No auth token — Cognito login failed")
+        }
+
+        var components = URLComponents(string: "\(baseUrl)/search/address")!
+        components.queryItems = [URLQueryItem(name: "q", value: query)]
+
+        var request = URLRequest(url: components.url!)
+        request.httpMethod = "GET"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        if let http = response as? HTTPURLResponse, http.statusCode != 200 {
+            let body = String(data: data, encoding: .utf8) ?? "no body"
+            throw ApiError.message("SearchAddress \(http.statusCode): \(body.prefix(200))")
+        }
+
+        return try decoder.decode(AddressSearchResponse.self, from: data).results
+    }
+
     // MARK: - Legacy (plate capture upload)
 
     func presign(capture: Capture) async throws -> PresignResponse {

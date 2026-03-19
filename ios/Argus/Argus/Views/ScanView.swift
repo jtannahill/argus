@@ -6,6 +6,7 @@ struct ScanView: View {
     @State private var location = LocationManager()
     @State private var identifier = BuildingIdentifier()
     @State private var showSheet = false
+    @State private var showAddressSearch = false
     @State private var radiusIndex = 1  // 0=nearby, 1=street, 2=block, 3=far
 
     private let radiusOptions: [(label: String, meters: Double, icon: String)] = [
@@ -59,6 +60,18 @@ struct ScanView: View {
                         .background(Color.black.opacity(0.6))
                         .foregroundColor(.green)
                         .cornerRadius(6)
+                    }
+
+                    // Address search button
+                    Button {
+                        showAddressSearch = true
+                    } label: {
+                        Image(systemName: "magnifyingglass")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: 36, height: 36)
+                            .background(Color.black.opacity(0.6))
+                            .clipShape(Circle())
                     }
                 }
                 .padding(.horizontal, 16)
@@ -199,6 +212,9 @@ struct ScanView: View {
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
             }
+        }
+        .sheet(isPresented: $showAddressSearch) {
+            AddressSearchView()
         }
         .onChange(of: showSheet) { _, isShowing in
             if isShowing {
