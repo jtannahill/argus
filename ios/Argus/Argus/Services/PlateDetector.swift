@@ -2,6 +2,7 @@ import Vision
 import CoreImage
 import UIKit
 
+@MainActor
 class PlateDetector: ObservableObject {
     @Published var lastDetectedPlate: String?
     @Published var lastConfidence: Double = 0
@@ -10,7 +11,7 @@ class PlateDetector: ObservableObject {
     private var windowStart = Date()
     private let windowDuration: TimeInterval = 1.0
 
-    func processFrame(_ sampleBuffer: CMSampleBuffer) {
+    nonisolated func processFrame(_ sampleBuffer: CMSampleBuffer) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
 
@@ -23,7 +24,7 @@ class PlateDetector: ObservableObject {
         try? VNImageRequestHandler(ciImage: ciImage).perform([request])
     }
 
-    private func handleTextRecognition(request: VNRequest, image: CIImage) {
+    private nonisolated func handleTextRecognition(request: VNRequest, image: CIImage) {
         guard let results = request.results as? [VNRecognizedTextObservation] else { return }
 
         for observation in results {
@@ -35,26 +36,28 @@ class PlateDetector: ObservableObject {
 
             let sharpness = computeSharpness(image: image, region: observation.boundingBox)
             let confidence = Double(candidate.confidence)
+            let detectedText = text
 
-            let now = Date()
-            if now.timeIntervalSince(windowStart) > windowDuration {
-                if let best = bestFrameInWindow {
-                    DispatchQueue.main.async {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                let now = Date()
+                if now.timeIntervalSince(self.windowStart) > self.windowDuration {
+                    if let best = self.bestFrameInWindow {
                         self.lastDetectedPlate = best.plate
                         self.lastConfidence = best.confidence
                     }
+                    self.bestFrameInWindow = nil
+                    self.windowStart = now
                 }
-                bestFrameInWindow = nil
-                windowStart = now
-            }
 
-            if bestFrameInWindow == nil || sharpness > bestFrameInWindow!.sharpness {
-                bestFrameInWindow = (image, sharpness, text, confidence)
+                if self.bestFrameInWindow == nil || sharpness > self.bestFrameInWindow!.sharpness {
+                    self.bestFrameInWindow = (image, sharpness, detectedText, confidence)
+                }
             }
         }
     }
 
-    private func computeSharpness(image: CIImage, region: CGRect) -> Double {
+    private nonisolated func computeSharpness(image: CIImage, region: CGRect) -> Double {
         let cropped = image.cropped(to: CGRect(
             x: region.origin.x * image.extent.width,
             y: region.origin.y * image.extent.height,

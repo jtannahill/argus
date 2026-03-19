@@ -10,9 +10,22 @@
 		3C75408A2F6C028200527093 /* Argus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Argus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		3C7540AA2F6C0ED000527093 /* Exceptions for "Argus" folder in "Argus" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 3C7540892F6C028200527093 /* Argus */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		3C75408C2F6C028200527093 /* Argus */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				3C7540AA2F6C0ED000527093 /* Exceptions for "Argus" folder in "Argus" target */,
+			);
 			path = Argus;
 			sourceTree = "<group>";
 		};
@@ -256,6 +269,11 @@
 				DEVELOPMENT_TEAM = P3ZC6ZG46V;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Argus/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Argus needs camera access to scan license plates";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Argus uses background location in Watch mode to continuously tag sightings";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Argus needs your location to tag plate sightings with GPS coordinates ";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -288,6 +306,11 @@
 				DEVELOPMENT_TEAM = P3ZC6ZG46V;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Argus/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Argus needs camera access to scan license plates";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Argus uses background location in Watch mode to continuously tag sightings";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Argus needs your location to tag plate sightings with GPS coordinates ";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

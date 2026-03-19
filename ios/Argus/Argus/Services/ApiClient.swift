@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 class ApiClient {
     static let shared = ApiClient()
     private let baseUrl: String

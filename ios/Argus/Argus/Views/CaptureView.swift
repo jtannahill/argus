@@ -42,13 +42,13 @@ struct CaptureView: View {
         }
         .onAppear {
             camera.setup()
-            camera.onFrame = { [weak detector] buffer in
-                detector?.processFrame(buffer)
+            camera.onFrame = { buffer in
+                detector.processFrame(buffer)
             }
         }
         .onDisappear { camera.stop() }
-        .onChange(of: detector.lastDetectedPlate) { _, plate in
-            guard let plate else { return }
+        .onChange(of: detector.lastDetectedPlate) { oldValue, newValue in
+            guard let plate = newValue else { return }
             lastPlate = plate
             showConfirmation = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
