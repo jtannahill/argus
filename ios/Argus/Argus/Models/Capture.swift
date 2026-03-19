@@ -12,7 +12,7 @@ struct Capture: Codable, Identifiable {
     var synced: Bool = false
 
     enum CaptureMode: String, Codable {
-        case drive, point, watch
+        case scan, point, sweep
     }
 }
 

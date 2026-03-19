@@ -3,7 +3,7 @@ import SwiftUI
 struct CaptureView: View {
     @State private var camera = CameraManager()
     @State private var detector = PlateDetector()
-    @State private var mode: Capture.CaptureMode = .drive
+    @State private var mode: Capture.CaptureMode = .scan
     @State private var showConfirmation = false
     @State private var lastPlate = ""
 
@@ -49,7 +49,7 @@ struct CaptureView: View {
                 }
 
                 HStack(spacing: 12) {
-                    ForEach(["drive", "point", "watch"], id: \.self) { m in
+                    ForEach(["scan", "point", "sweep"], id: \.self) { m in
                         Button(m.capitalized) {
                             mode = Capture.CaptureMode(rawValue: m)!
                         }
