@@ -20,7 +20,7 @@ class ApiClient {
 
     // MARK: - Building Identification
 
-    func identify(latitude: Double, longitude: Double, heading: Double) async throws -> IdentifyResponse {
+    func identify(latitude: Double, longitude: Double, heading: Double, radius: Double = 100) async throws -> IdentifyResponse {
         guard !baseUrl.isEmpty else {
             throw ApiError.message("API_URL not set in Info.plist")
         }
@@ -37,6 +37,7 @@ class ApiClient {
             "latitude": latitude,
             "longitude": longitude,
             "heading": heading,
+            "radius": radius,
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 

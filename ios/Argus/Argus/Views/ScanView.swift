@@ -6,6 +6,14 @@ struct ScanView: View {
     @State private var location = LocationManager()
     @State private var identifier = BuildingIdentifier()
     @State private var showSheet = false
+    @State private var radiusIndex = 1  // 0=nearby, 1=street, 2=block, 3=far
+
+    private let radiusOptions: [(label: String, meters: Double, icon: String)] = [
+        ("Nearby", 30, "figure.walk"),
+        ("Street", 100, "road.lanes"),
+        ("Block", 300, "map"),
+        ("Far", 800, "binoculars"),
+    ]
 
     var body: some View {
         ZStack {
@@ -51,14 +59,53 @@ struct ScanView: View {
 
                 Spacer()
 
-                // Refresh button
-                HStack {
+                // Radius toggle + Refresh
+                HStack(spacing: 12) {
+                    // Radius picker
+                    HStack(spacing: 0) {
+                        ForEach(0..<radiusOptions.count, id: \.self) { i in
+                            Button {
+                                radiusIndex = i
+                                // Re-identify with new radius
+                                guard location.hasLocation else { return }
+                                let loc = CLLocation(latitude: location.latitude, longitude: location.longitude)
+                                Task {
+                                    await identifier.identify(
+                                        location: loc,
+                                        heading: location.heading,
+                                        radius: radiusOptions[i].meters,
+                                        force: true
+                                    )
+                                }
+                            } label: {
+                                VStack(spacing: 2) {
+                                    Image(systemName: radiusOptions[i].icon)
+                                        .font(.system(size: 12))
+                                    Text(radiusOptions[i].label)
+                                        .font(.system(size: 9, weight: .medium))
+                                }
+                                .frame(width: 52, height: 40)
+                                .foregroundColor(i == radiusIndex ? .white : .gray)
+                                .background(i == radiusIndex ? Color.green.opacity(0.85) : Color.black.opacity(0.4))
+                            }
+                        }
+                    }
+                    .cornerRadius(8)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.2)))
+
                     Spacer()
+
+                    // Refresh button
                     Button {
                         guard location.hasLocation else { return }
                         let loc = CLLocation(latitude: location.latitude, longitude: location.longitude)
                         Task {
-                            await identifier.identify(location: loc, heading: location.heading, force: true)
+                            await identifier.identify(
+                                location: loc,
+                                heading: location.heading,
+                                radius: radiusOptions[radiusIndex].meters,
+                                force: true
+                            )
                         }
                     } label: {
                         Image(systemName: "arrow.clockwise")
@@ -68,8 +115,8 @@ struct ScanView: View {
                             .background(Color.green.opacity(0.85))
                             .clipShape(Circle())
                     }
-                    .padding(.trailing, 16)
                 }
+                .padding(.horizontal, 16)
 
                 // Error display
                 if let err = identifier.error {
@@ -121,7 +168,7 @@ struct ScanView: View {
             guard location.hasLocation else { return }
             let loc = CLLocation(latitude: location.latitude, longitude: location.longitude)
             Task {
-                await identifier.identify(location: loc, heading: location.heading)
+                await identifier.identify(location: loc, heading: location.heading, radius: radiusOptions[radiusIndex].meters)
             }
         }
         .onChange(of: identifier.currentBuilding?.bbl) { _, newValue in

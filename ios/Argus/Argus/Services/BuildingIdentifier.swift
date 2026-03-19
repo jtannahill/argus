@@ -13,7 +13,7 @@ class BuildingIdentifier {
     private var lastIdentifyTime: Date = .distantPast
     private let debounceInterval: TimeInterval = 1.0
 
-    func identify(location: CLLocation, heading: CLLocationDirection, force: Bool = false) async {
+    func identify(location: CLLocation, heading: CLLocationDirection, radius: Double = 100, force: Bool = false) async {
         let now = Date()
         guard force || now.timeIntervalSince(lastIdentifyTime) >= debounceInterval else { return }
         guard !isIdentifying else { return }
@@ -27,7 +27,8 @@ class BuildingIdentifier {
             let response = try await ApiClient.shared.identify(
                 latitude: location.coordinate.latitude,
                 longitude: location.coordinate.longitude,
-                heading: heading
+                heading: heading,
+                radius: radius
             )
             candidates = response.candidates
             if let top = response.candidates.first {
