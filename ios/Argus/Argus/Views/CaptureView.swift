@@ -42,8 +42,9 @@ struct CaptureView: View {
         }
         .onAppear {
             camera.setup()
+            let det = detector
             camera.onFrame = { buffer in
-                detector.processFrame(buffer)
+                det.processFrame(buffer)
             }
         }
         .onDisappear { camera.stop() }
