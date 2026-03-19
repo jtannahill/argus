@@ -12,22 +12,22 @@ struct ValueTab: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.green)
 
-                    if let total = profile.assessedTotal {
+                    if let total = profile.assessedTotal, let num = Double(total) {
                         HStack {
                             Text("Total")
                                 .foregroundColor(.secondary)
                             Spacer()
-                            Text(formatCurrency(total))
+                            Text(formatCurrency(Int(num)))
                                 .font(.system(size: 16, weight: .bold, design: .monospaced))
                         }
                     }
 
-                    if let land = profile.assessedLand {
+                    if let land = profile.assessedLand, let num = Double(land) {
                         HStack {
                             Text("Land")
                                 .foregroundColor(.secondary)
                             Spacer()
-                            Text(formatCurrency(land))
+                            Text(formatCurrency(Int(num)))
                                 .font(.system(size: 16, weight: .bold, design: .monospaced))
                         }
                     }
@@ -62,32 +62,32 @@ struct ValueTab: View {
                         }
                     }
 
-                    if let far = profile.far {
+                    if let far = profile.far, let num = Double(far) {
                         HStack {
                             Text("FAR (Used)")
                                 .foregroundColor(.secondary)
                             Spacer()
-                            Text(String(format: "%.2f", far))
+                            Text(String(format: "%.2f", num))
                                 .font(.system(size: 14, design: .monospaced))
                         }
                     }
 
-                    if let maxFar = profile.maxFar {
+                    if let maxFar = profile.maxFar, let num = Double(maxFar) {
                         HStack {
                             Text("FAR (Max)")
                                 .foregroundColor(.secondary)
                             Spacer()
-                            Text(String(format: "%.2f", maxFar))
+                            Text(String(format: "%.2f", num))
                                 .font(.system(size: 14, design: .monospaced))
                         }
                     }
 
-                    if let lot = profile.lotArea {
+                    if let lot = profile.lotArea, let num = Int(lot) {
                         HStack {
                             Text("Lot Area")
                                 .foregroundColor(.secondary)
                             Spacer()
-                            Text("\(lot.formatted()) sq ft")
+                            Text("\(num.formatted()) sq ft")
                                 .font(.system(size: 14, design: .monospaced))
                         }
                     }

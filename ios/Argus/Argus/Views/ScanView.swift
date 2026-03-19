@@ -51,6 +51,26 @@ struct ScanView: View {
 
                 Spacer()
 
+                // Refresh button
+                HStack {
+                    Spacer()
+                    Button {
+                        guard location.hasLocation else { return }
+                        let loc = CLLocation(latitude: location.latitude, longitude: location.longitude)
+                        Task {
+                            await identifier.identify(location: loc, heading: location.heading, force: true)
+                        }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                            .frame(width: 44, height: 44)
+                            .background(Color.green.opacity(0.85))
+                            .clipShape(Circle())
+                    }
+                    .padding(.trailing, 16)
+                }
+
                 // Error display
                 if let err = identifier.error {
                     Text(err)

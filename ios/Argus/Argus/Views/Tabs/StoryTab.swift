@@ -6,21 +6,21 @@ struct StoryTab: View {
     var body: some View {
         if let story {
             VStack(alignment: .leading, spacing: 16) {
-                Text(story.headline)
+                Text(story.headline ?? "")
                     .font(.system(size: 18, weight: .bold))
 
-                Text(story.narrative)
+                Text(story.narrative ?? "")
                     .font(.system(size: 15))
                     .foregroundColor(.secondary)
                     .lineSpacing(4)
 
-                if !story.funFacts.isEmpty {
+                if let facts = story.funFacts, !facts.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Fun Facts")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.green)
 
-                        ForEach(story.funFacts, id: \.self) { fact in
+                        ForEach(facts, id: \.self) { fact in
                             HStack(alignment: .top, spacing: 8) {
                                 Text("\u{2022}")
                                     .foregroundColor(.green)

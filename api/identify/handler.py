@@ -1,9 +1,15 @@
-"""POST /identify — resolve GPS + heading to building candidates."""
+"""POST /identify — resolve GPS + heading to building candidates.
+
+Enriches the top candidate with ownership, violations, and an AI-generated
+story (via Bedrock). Subsequent candidates get profile only.
+"""
 
 import json
 import os
 import sys
 from decimal import Decimal
+
+import boto3
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -32,9 +38,11 @@ def lambda_handler(event, context):
     except (TypeError, ValueError):
         return _response(400, {'error': 'latitude, longitude, and heading must be numeric'})
 
+    radius = float(body.get('radius', 100))  # Default 100m, good for general use
+
     provider = NYCDataProvider()
     try:
-        candidates = provider.resolve_location(lat, lon, heading)
+        candidates = provider.resolve_location(lat, lon, heading, radius_m=radius)
     except Exception as exc:
         return _response(502, {'error': f'NYC data provider error: {str(exc)}'})
 
@@ -81,14 +89,49 @@ def lambda_handler(event, context):
             },
         }
 
-        # Check DynamoDB cache for story
-        if bbl:
+        # Enrich top candidate with ownership, violations, and story
+        if bbl and len(enriched) == 0:
+            # Ownership from ACRIS
+            try:
+                ownership_raw = provider.get_ownership(bbl)
+                if ownership_raw:
+                    entry['ownership'] = [{
+                        'name': r.get('name', r.get('party_name', '')),
+                        'type': r.get('doc_type', r.get('docType', '')),
+                        'percentage': None,
+                        'since': r.get('recorded_datetime', r.get('documentDate', ''))[:10] if r.get('recorded_datetime') or r.get('documentDate') else None,
+                    } for r in ownership_raw[:5]]
+            except Exception:
+                pass
+
+            # Violations from DOB + HPD
+            try:
+                violations_raw = provider.get_violations(bbl)
+                all_violations = []
+                if isinstance(violations_raw, dict):
+                    all_violations = violations_raw.get('dob', []) + violations_raw.get('hpd', [])
+                elif isinstance(violations_raw, list):
+                    all_violations = violations_raw
+                if all_violations:
+                    entry['violations'] = [{
+                        'violationId': v.get('isn_dob_bis_viol', v.get('violationid', str(i))),
+                        'source': v.get('_source', 'DOB'),
+                        'date': v.get('issue_date', v.get('inspectiondate', '')),
+                        'description': v.get('description', v.get('novdescription', '')),
+                        'status': v.get('violation_type', v.get('currentstatus', '')),
+                        'severity': None,
+                    } for i, v in enumerate(all_violations[:10])]
+            except Exception:
+                pass
+
+            # Story — check DynamoDB cache first, generate via Bedrock if missing
             pk = building_pk(bbl)
+            story = None
             try:
                 story_resp = table.get_item(Key={'PK': pk, 'SK': story_sk()})
                 story_item = story_resp.get('Item')
                 if story_item:
-                    entry['story'] = {
+                    story = {
                         'headline': story_item.get('headline', ''),
                         'narrative': story_item.get('narrative', ''),
                         'funFacts': story_item.get('funFacts', []),
@@ -97,9 +140,81 @@ def lambda_handler(event, context):
             except Exception:
                 pass
 
+            if not story:
+                story = _generate_story(entry, table, pk)
+
+            if story:
+                entry['story'] = story
+
         enriched.append(entry)
 
     return _response(200, {'candidates': enriched})
+
+
+def _generate_story(entry, table, pk):
+    """Generate building story via Bedrock and cache it."""
+    try:
+        profile = entry.get('profile', {})
+        address = entry.get('address', 'Unknown')
+        year = profile.get('yearBuilt', 'Unknown')
+        stories = profile.get('stories', '')
+        landmark = profile.get('landmark', '')
+        bldg_class = profile.get('buildingClass', '')
+        zone = profile.get('zoneDist', '')
+        owner = ''
+        if entry.get('ownership'):
+            owner = entry['ownership'][0].get('name', '')
+
+        prompt = (
+            f"You are a knowledgeable NYC architectural historian. Write a brief, engaging story about this building.\n\n"
+            f"Building: {address}\nYear Built: {year}\nStories: {stories}\n"
+            f"Building Class: {bldg_class}\nZoning: {zone}\n"
+            f"{'Landmark: ' + landmark if landmark else ''}\n"
+            f"{'Current Owner: ' + owner if owner else ''}\n\n"
+            f'Respond in JSON: {{"headline": "one-line hook under 80 chars", '
+            f'"narrative": "2-3 paragraph engaging story", '
+            f'"funFacts": ["fact 1", "fact 2", "fact 3"]}}\n\n'
+            f"Be specific. If not a famous building, focus on architectural style, era, and neighborhood."
+        )
+
+        bedrock = boto3.client('bedrock-runtime', region_name='us-east-1')
+        resp = bedrock.invoke_model(
+            modelId='anthropic.claude-sonnet-4-20250514',
+            contentType='application/json',
+            accept='application/json',
+            body=json.dumps({
+                'anthropic_version': 'bedrock-2023-05-31',
+                'max_tokens': 500,
+                'messages': [{'role': 'user', 'content': prompt}],
+            }),
+        )
+        result = json.loads(resp['body'].read())
+        text = result['content'][0]['text']
+
+        # Parse JSON from response
+        start = text.find('{')
+        end = text.rfind('}') + 1
+        if start >= 0 and end > start:
+            story = json.loads(text[start:end])
+        else:
+            story = {'headline': '', 'narrative': text, 'funFacts': []}
+
+        story['generatedAt'] = __import__('datetime').datetime.utcnow().isoformat()
+
+        # Cache in DynamoDB
+        from shared.models import story_sk
+        table.put_item(Item={
+            'PK': pk,
+            'SK': story_sk(),
+            'headline': story.get('headline', ''),
+            'narrative': story.get('narrative', ''),
+            'funFacts': story.get('funFacts', []),
+            'generatedAt': story['generatedAt'],
+        })
+
+        return story
+    except Exception:
+        return None
 
 
 def _convert_decimals(obj):

@@ -100,10 +100,14 @@ export class ApiStack extends cdk.Stack {
         GEOCLIENT_APP_KEY: process.env.GEOCLIENT_APP_KEY ?? '',
         SOCRATA_TOKEN: process.env.SOCRATA_TOKEN ?? '',
       },
-      timeout: cdk.Duration.seconds(10),
-      memorySize: 256,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
     });
-    props.table.grantReadData(identifyFn);
+    props.table.grantReadWriteData(identifyFn);
+    identifyFn.addToRolePolicy(new cdk.aws_iam.PolicyStatement({
+      actions: ['bedrock:InvokeModel'],
+      resources: ['*'],
+    }));
 
     const identifyResource = this.api.root.addResource('identify');
     identifyResource.addMethod('POST', new apigateway.LambdaIntegration(identifyFn), {

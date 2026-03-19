@@ -13,9 +13,9 @@ class BuildingIdentifier {
     private var lastIdentifyTime: Date = .distantPast
     private let debounceInterval: TimeInterval = 1.0
 
-    func identify(location: CLLocation, heading: CLLocationDirection) async {
+    func identify(location: CLLocation, heading: CLLocationDirection, force: Bool = false) async {
         let now = Date()
-        guard now.timeIntervalSince(lastIdentifyTime) >= debounceInterval else { return }
+        guard force || now.timeIntervalSince(lastIdentifyTime) >= debounceInterval else { return }
         guard !isIdentifying else { return }
 
         lastIdentifyTime = now
