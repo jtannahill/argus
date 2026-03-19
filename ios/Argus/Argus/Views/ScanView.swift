@@ -81,6 +81,8 @@ struct ScanView: View {
                                         location: loc,
                                         heading: location.heading,
                                         radius: radiusOptions[i].meters,
+                                        altitude: location.altitude,
+                                        pitch: location.pitch,
                                         force: true
                                     )
                                 }
@@ -111,6 +113,8 @@ struct ScanView: View {
                                 location: loc,
                                 heading: location.heading,
                                 radius: radiusOptions[radiusIndex].meters,
+                                altitude: location.altitude,
+                                pitch: location.pitch,
                                 force: true
                             )
                         }
@@ -175,7 +179,13 @@ struct ScanView: View {
             guard location.hasLocation else { return }
             let loc = CLLocation(latitude: location.latitude, longitude: location.longitude)
             Task {
-                await identifier.identify(location: loc, heading: location.heading, radius: radiusOptions[radiusIndex].meters)
+                await identifier.identify(
+                    location: loc,
+                    heading: location.heading,
+                    radius: radiusOptions[radiusIndex].meters,
+                    altitude: location.altitude,
+                    pitch: location.pitch
+                )
             }
         }
         .onChange(of: identifier.currentBuilding?.bbl) { _, newValue in

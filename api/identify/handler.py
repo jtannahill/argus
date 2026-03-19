@@ -40,6 +40,32 @@ def lambda_handler(event, context):
 
     radius = float(body.get('radius', 100))  # Default 100m, good for general use
 
+    # Optional elevation-aware targeting params
+    altitude = body.get('altitude')  # metres above sea level (CLLocation.altitude)
+    pitch = body.get('pitch')        # degrees: 0=horizontal, -90=straight down
+
+    if altitude is not None:
+        try:
+            altitude = float(altitude)
+        except (TypeError, ValueError):
+            altitude = None
+
+    if pitch is not None:
+        try:
+            pitch = float(pitch)
+        except (TypeError, ValueError):
+            pitch = None
+
+    # When the user is elevated and pointing downward, project the camera ray
+    # to ground level and shift the search origin to that intersection point.
+    if altitude and pitch and pitch < -5:
+        import math
+        ground_distance = altitude / math.tan(abs(math.radians(pitch)))
+        lat_offset = ground_distance * math.cos(math.radians(heading)) / 111320
+        lon_offset = ground_distance * math.sin(math.radians(heading)) / (111320 * math.cos(math.radians(lat)))
+        lat = lat + lat_offset
+        lon = lon + lon_offset
+
     # Narrow the heading cone as distance grows so far-mode identifies
     # the specific building you're pointing at rather than everything in
     # a half-mile arc.

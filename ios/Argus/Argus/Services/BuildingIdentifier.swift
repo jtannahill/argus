@@ -13,7 +13,7 @@ class BuildingIdentifier {
     private var lastIdentifyTime: Date = .distantPast
     private let debounceInterval: TimeInterval = 1.0
 
-    func identify(location: CLLocation, heading: CLLocationDirection, radius: Double = 100, force: Bool = false) async {
+    func identify(location: CLLocation, heading: CLLocationDirection, radius: Double = 100, altitude: Double = 0, pitch: Double = 0, force: Bool = false) async {
         let now = Date()
         guard force || now.timeIntervalSince(lastIdentifyTime) >= debounceInterval else { return }
         guard !isIdentifying else { return }
@@ -28,7 +28,9 @@ class BuildingIdentifier {
                 latitude: location.coordinate.latitude,
                 longitude: location.coordinate.longitude,
                 heading: heading,
-                radius: radius
+                radius: radius,
+                altitude: altitude,
+                pitch: pitch
             )
             candidates = response.candidates
             if let top = response.candidates.first {
