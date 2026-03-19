@@ -17,6 +17,7 @@ const ALERT_COLORS: Record<string, string> = {
   clone_suspicion: 'border-red-500 bg-red-900/30',
   circling: 'border-orange-500 bg-orange-900/30',
   repeat_visit: 'border-yellow-500 bg-yellow-900/30',
+  diplomatic_sighting: 'border-purple-500 bg-purple-900/30',
 };
 
 export default function AlertsPanel() {

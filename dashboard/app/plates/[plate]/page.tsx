@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import DiplomaticBadge from '@/components/DiplomaticBadge';
 
 interface PlateData {
   plate: string;
@@ -15,6 +16,12 @@ interface PlateData {
     classifierColor?: string;
     mismatch?: boolean;
     mismatchDetails?: string;
+    diplomatic?: {
+      isDiplomatic: boolean;
+      issuingCountry: string;
+      plateType: string;
+      mission?: { country: string; missionType: string; city: string };
+    };
   };
   recentSightings: {
     timestamp: string;
@@ -41,7 +48,13 @@ export default function PlateDetailPage() {
     <div className="min-h-screen bg-gray-900 text-white p-8">
       <Link href="/" className="text-blue-400 text-sm mb-4 inline-block">&larr; Back to map</Link>
 
-      <h1 className="text-3xl font-mono font-bold mb-6">{data.plate}</h1>
+      <h1 className="text-3xl font-mono font-bold mb-4">{data.plate}</h1>
+
+      {data.enrichment.diplomatic?.isDiplomatic && (
+        <div className="mb-6">
+          <DiplomaticBadge diplomatic={data.enrichment.diplomatic} />
+        </div>
+      )}
 
       {data.enrichment.mismatch && (
         <div className="bg-red-900/50 border border-red-500 rounded-lg p-4 mb-6">
@@ -65,7 +78,7 @@ export default function PlateDetailPage() {
           {['Make', 'Model', 'Year', 'Color'].map((f) => (
             <div key={f} className="flex justify-between py-1 text-sm">
               <span className="text-gray-400">{f}</span>
-              <span>{data.enrichment[`classifier${f}` as keyof typeof data.enrichment] || '—'}</span>
+              <span>{String(data.enrichment[`classifier${f}` as keyof typeof data.enrichment] || '—')}</span>
             </div>
           ))}
         </div>

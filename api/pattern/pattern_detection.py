@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from shared.dynamo import get_table
 from shared.models import sighting_pk, alert_pk
+from shared.diplomatic import get_diplomatic_geofences
 
 from boto3.dynamodb.conditions import Key, Attr
 
@@ -88,6 +89,28 @@ def lambda_handler(event, context):
             'plate': plate,
             'message': f"Vehicle mismatch for {plate}: {', '.join(mismatch_details)}",
         })
+
+    # Rule 4: Diplomatic plate sighting
+    diplomatic = event.get('diplomatic')
+    if diplomatic and diplomatic.get('isDiplomatic'):
+        # Check if plate is near its own mission/consulate (auto-geofence suppression)
+        diplo_geofences = get_diplomatic_geofences(diplomatic)
+        near_own_mission = False
+        for dg in diplo_geofences:
+            dist = _haversine_km(lat, lon, dg['latitude'], dg['longitude'])
+            if dist <= dg.get('radiusM', 200) / 1000.0:
+                near_own_mission = True
+                break
+
+        if not near_own_mission:
+            country = diplomatic.get('mission', {}).get('country', diplomatic.get('issuingCountry', 'Unknown'))
+            plate_type = diplomatic.get('plateType', 'diplomatic')
+            alerts.append({
+                'type': 'diplomatic_sighting',
+                'plate': plate,
+                'diplomaticInfo': diplomatic,
+                'message': f"Diplomatic plate ({country} {plate_type}) detected outside mission zone",
+            })
 
     # Write alerts to DynamoDB
     for alert in alerts:
