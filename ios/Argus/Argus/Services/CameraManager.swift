@@ -1,14 +1,21 @@
 import AVFoundation
 import UIKit
 
-@MainActor
 class CameraManager: NSObject, ObservableObject {
+    @Published var isRunning = false
+
     let session = AVCaptureSession()
     private let output = AVCaptureVideoDataOutput()
     private let queue = DispatchQueue(label: "camera.queue")
 
-    var onFrame: (@Sendable (CMSampleBuffer) -> Void)?
+    private var _onFrame: (@Sendable (CMSampleBuffer) -> Void)?
 
+    @MainActor
+    func setOnFrame(_ handler: @escaping @Sendable (CMSampleBuffer) -> Void) {
+        _onFrame = handler
+    }
+
+    @MainActor
     func setup() {
         session.sessionPreset = .high
         guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
@@ -21,13 +28,18 @@ class CameraManager: NSObject, ObservableObject {
         if session.canAddOutput(output) { session.addOutput(output) }
 
         session.startRunning()
+        isRunning = true
     }
 
-    func stop() { session.stopRunning() }
+    @MainActor
+    func stop() {
+        session.stopRunning()
+        isRunning = false
+    }
 }
 
 extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
     nonisolated func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        onFrame?(sampleBuffer)
+        _onFrame?(sampleBuffer)
     }
 }

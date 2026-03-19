@@ -42,7 +42,7 @@ struct CaptureView: View {
         }
         .onAppear {
             camera.setup()
-            camera.onFrame = { buffer in
+            camera.setOnFrame { buffer in
                 detector.processFrame(buffer)
             }
         }
