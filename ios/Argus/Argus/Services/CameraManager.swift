@@ -10,7 +10,8 @@ class CameraManager: NSObject {
     private let output = AVCaptureVideoDataOutput()
     private let queue = DispatchQueue(label: "camera.queue")
 
-    nonisolated var onFrame: (@Sendable (CMSampleBuffer) -> Void)?
+    @ObservationIgnored
+    var onFrame: (@Sendable (CMSampleBuffer) -> Void)?
 
     @MainActor
     func setup() {
