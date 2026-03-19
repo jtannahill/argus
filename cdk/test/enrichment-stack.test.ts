@@ -36,4 +36,11 @@ describe('EnrichmentStack', () => {
       Runtime: 'python3.12',
     });
   });
+
+  test('creates pattern detection Lambda handler', () => {
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Handler: 'handler.lambda_handler',
+      Runtime: 'python3.12',
+    });
+  });
 });

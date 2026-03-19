@@ -39,6 +39,25 @@ export class EnrichmentStack extends cdk.Stack {
     });
     props.table.grantReadData(plateLookupFn);
 
+    // ── PatternDetection Lambda ───────────────────────────────────────────
+    const patternFn = new lambda.Function(this, 'PatternDetectionFunction', {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'handler.lambda_handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../api'), {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_12.bundlingImage,
+          command: [
+            'bash', '-c',
+            'cp -r /asset-input/pattern/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+          ],
+        },
+      }),
+      environment: { TABLE_NAME: props.table.tableName },
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+    });
+    props.table.grantReadWriteData(patternFn);
+
     // ── MergeResults Lambda ───────────────────────────────────────────────
     const mergeResultsFn = new lambda.Function(this, 'MergeResultsFunction', {
       runtime: lambda.Runtime.PYTHON_3_12,
@@ -106,10 +125,16 @@ export class EnrichmentStack extends cdk.Stack {
       outputPath: '$.Payload',
     });
 
+    // PatternDetection Lambda task
+    const patternTask = new tasks.LambdaInvoke(this, 'PatternDetection', {
+      lambdaFunction: patternFn,
+      outputPath: '$.Payload',
+    });
+
     // Chain the state machine
     this.stateMachine = new sfn.StateMachine(this, 'EnrichmentStateMachine', {
       definitionBody: sfn.DefinitionBody.fromChainable(
-        parallel.next(restructure).next(mergeTask),
+        parallel.next(restructure).next(mergeTask).next(patternTask),
       ),
       timeout: cdk.Duration.minutes(5),
     });
