@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Argus needs camera access to scan license plates</string>
+	<string>Argus uses the camera to identify buildings around you</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Argus needs your location to tag plate sightings with GPS coordinates</string>
+	<string>Argus needs your location to identify nearby buildings</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Argus uses background location in Watch mode to continuously tag sightings</string>
+	<string>Argus uses background location to track buildings as you walk</string>
 	<key>API_URL</key>
 	<string>https://7c46jp99ta.execute-api.us-east-1.amazonaws.com/prod</string>
 	<key>CFBundleURLTypes</key>

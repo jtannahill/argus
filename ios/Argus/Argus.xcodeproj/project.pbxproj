@@ -271,9 +271,9 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Argus/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Argus needs camera access to scan license plates";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Argus uses background location in Watch mode to continuously tag sightings";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Argus needs your location to tag plate sightings with GPS coordinates ";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Argus uses the camera to identify buildings around you";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Argus uses background location to track buildings as you walk";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Argus needs your location to identify nearby buildings";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -308,9 +308,9 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Argus/Info.plist;
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
-				INFOPLIST_KEY_NSCameraUsageDescription = "Argus needs camera access to scan license plates";
-				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Argus uses background location in Watch mode to continuously tag sightings";
-				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Argus needs your location to tag plate sightings with GPS coordinates ";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Argus uses the camera to identify buildings around you";
+				INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription = "Argus uses background location to track buildings as you walk";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Argus needs your location to identify nearby buildings";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
