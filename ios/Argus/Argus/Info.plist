@@ -2,13 +2,20 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Argus needs camera access to scan license plates</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Argus needs your location to tag plate sightings with GPS coordinates</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Argus uses background location in Watch mode to continuously tag sightings</string>
+	<key>API_URL</key>
+	<string>https://7c46jp99ta.execute-api.us-east-1.amazonaws.com/prod</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 		</dict>
-		<dict/>
 	</array>
 </dict>
 </plist>
