@@ -141,6 +141,40 @@ export class ApiStack extends cdk.Stack {
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
 
+    // ── Pins Lambda ──────────────────────────────────────────────────────
+    const pinsFn = new lambda.Function(this, 'PinsFunction', {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'handler.lambda_handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../api'), {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_12.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/pins/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+          ],
+        },
+      }),
+      environment: { TABLE_NAME: props.table.tableName },
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+    });
+    props.table.grantReadWriteData(pinsFn);
+
+    const pinsResource = this.api.root.addResource('pins');
+    pinsResource.addMethod('POST', new apigateway.LambdaIntegration(pinsFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    pinsResource.addMethod('GET', new apigateway.LambdaIntegration(pinsFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+    const pinBblResource = pinsResource.addResource('{bbl}');
+    pinBblResource.addMethod('DELETE', new apigateway.LambdaIntegration(pinsFn), {
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    });
+
     // ── Search Lambda ──────────────────────────────────────────────────────
     const searchFn = new lambda.Function(this, 'SearchFunction', {
       runtime: lambda.Runtime.PYTHON_3_12,
