@@ -36,6 +36,16 @@ struct BuildingSheet: View {
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
+                    // Share button
+                    Button {
+                        shareSnapshot()
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 22))
+                            .foregroundColor(.secondary)
+                    }
+
+                    // Pin button
                     Button {
                         Task { await togglePin() }
                     } label: {
@@ -120,6 +130,33 @@ struct BuildingSheet: View {
         }
         .task {
             await loadDetail()
+        }
+    }
+
+    private func shareSnapshot() {
+        guard let image = renderSnapshot(
+            building: building,
+            userLocation: nil,
+            heading: nil,
+            distance: building.distance,
+            mode: "ARGUS"
+        ) else { return }
+
+        let activityVC = UIActivityViewController(
+            activityItems: [
+                image,
+                "\(building.address) — BBL \(building.bbl)\n\(building.story?.headline ?? "")\nScanned with Argus",
+            ],
+            applicationActivities: nil
+        )
+
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let root = windowScene.windows.first?.rootViewController {
+            var topVC = root
+            while let presented = topVC.presentedViewController {
+                topVC = presented
+            }
+            topVC.present(activityVC, animated: true)
         }
     }
 
