@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct CaptureView: View {
-    @StateObject private var camera = CameraManager()
-    @StateObject private var detector = PlateDetector()
+    @State private var camera = CameraManager()
+    @State private var detector = PlateDetector()
     @State private var mode: Capture.CaptureMode = .drive
     @State private var showConfirmation = false
     @State private var lastPlate = ""
@@ -42,7 +42,7 @@ struct CaptureView: View {
         }
         .onAppear {
             camera.setup()
-            camera.setOnFrame { buffer in
+            camera.onFrame = { buffer in
                 detector.processFrame(buffer)
             }
         }

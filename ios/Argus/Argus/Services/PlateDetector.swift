@@ -1,11 +1,12 @@
 import Vision
 import CoreImage
 import UIKit
+import Observation
 
-@MainActor
-class PlateDetector: ObservableObject {
-    @Published var lastDetectedPlate: String?
-    @Published var lastConfidence: Double = 0
+@Observable
+class PlateDetector {
+    var lastDetectedPlate: String?
+    var lastConfidence: Double = 0
 
     private var bestFrameInWindow: (image: CIImage, sharpness: Double, plate: String, confidence: Double)?
     private var windowStart = Date()

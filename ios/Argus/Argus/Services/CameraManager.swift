@@ -1,19 +1,16 @@
 import AVFoundation
 import UIKit
+import Observation
 
-class CameraManager: NSObject, ObservableObject {
-    @Published var isRunning = false
+@Observable
+class CameraManager: NSObject {
+    var isRunning = false
 
     let session = AVCaptureSession()
     private let output = AVCaptureVideoDataOutput()
     private let queue = DispatchQueue(label: "camera.queue")
 
-    private var _onFrame: (@Sendable (CMSampleBuffer) -> Void)?
-
-    @MainActor
-    func setOnFrame(_ handler: @escaping @Sendable (CMSampleBuffer) -> Void) {
-        _onFrame = handler
-    }
+    nonisolated(unsafe) var onFrame: (@Sendable (CMSampleBuffer) -> Void)?
 
     @MainActor
     func setup() {
@@ -40,6 +37,6 @@ class CameraManager: NSObject, ObservableObject {
 
 extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
     nonisolated func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        _onFrame?(sampleBuffer)
+        onFrame?(sampleBuffer)
     }
 }
