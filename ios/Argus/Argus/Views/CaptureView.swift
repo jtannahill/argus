@@ -12,6 +12,30 @@ struct CaptureView: View {
             CameraPreview(session: camera.session)
                 .ignoresSafeArea()
 
+            // Yellow bounding box
+            GeometryReader { geo in
+                if let box = detector.boundingBox {
+                    let rect = convertBoundingBox(box, in: geo.size)
+                    Rectangle()
+                        .stroke(Color.yellow, lineWidth: 3)
+                        .frame(width: rect.width, height: rect.height)
+                        .position(x: rect.midX, y: rect.midY)
+
+                    // Plate text label above the box
+                    if let plate = detector.lastDetectedPlate {
+                        Text(plate)
+                            .font(.system(size: 14, weight: .bold, design: .monospaced))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.yellow)
+                            .foregroundColor(.black)
+                            .cornerRadius(4)
+                            .position(x: rect.midX, y: rect.minY - 16)
+                    }
+                }
+            }
+            .ignoresSafeArea()
+
             VStack {
                 // Debug info
                 if let error = camera.errorMessage {
@@ -19,13 +43,6 @@ struct CaptureView: View {
                         .font(.caption)
                         .padding(8)
                         .background(Color.red.opacity(0.9))
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                } else if !camera.isRunning {
-                    Text("Starting camera...")
-                        .font(.caption)
-                        .padding(8)
-                        .background(Color.orange.opacity(0.9))
                         .foregroundColor(.white)
                         .cornerRadius(8)
                 }
@@ -74,5 +91,14 @@ struct CaptureView: View {
                 showConfirmation = false
             }
         }
+    }
+
+    /// Convert Vision bounding box (normalized, origin bottom-left) to screen coordinates
+    private func convertBoundingBox(_ box: CGRect, in size: CGSize) -> CGRect {
+        let x = box.origin.x * size.width
+        let y = (1 - box.origin.y - box.height) * size.height  // flip Y axis
+        let w = box.width * size.width
+        let h = box.height * size.height
+        return CGRect(x: x, y: y, width: w, height: h)
     }
 }
