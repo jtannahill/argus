@@ -29,6 +29,15 @@ export class MlStack extends cdk.Stack {
     props.trainingBucket.grantReadWrite(sagemakerRole);
     props.capturesBucket.grantRead(sagemakerRole);
 
+    // Explicit S3 access for SageMaker model validation
+    sagemakerRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['s3:GetObject', 's3:ListBucket'],
+      resources: [
+        props.trainingBucket.bucketArn,
+        `${props.trainingBucket.bucketArn}/*`,
+      ],
+    }));
+
     // Plate Read endpoint (Serverless Inference)
     const plateReadModel = new sagemaker.CfnModel(this, 'PlateReadModel', {
       executionRoleArn: sagemakerRole.roleArn,
@@ -37,14 +46,15 @@ export class MlStack extends cdk.Stack {
         modelDataUrl: `s3://${props.trainingBucket.bucketName}/models/plate-read/model.tar.gz`,
       },
     });
+    plateReadModel.node.addDependency(sagemakerRole);
 
     const plateReadEndpointConfig = new sagemaker.CfnEndpointConfig(this, 'PlateReadEndpointConfig', {
       productionVariants: [{
         modelName: plateReadModel.attrModelName,
         variantName: 'AllTraffic',
         serverlessConfig: {
-          maxConcurrency: 5,
-          memorySizeInMb: 4096,
+          maxConcurrency: 2,
+          memorySizeInMb: 2048,
         },
       }],
     });
@@ -62,14 +72,15 @@ export class MlStack extends cdk.Stack {
         modelDataUrl: `s3://${props.trainingBucket.bucketName}/models/vehicle-classifier/model.tar.gz`,
       },
     });
+    vehicleModel.node.addDependency(sagemakerRole);
 
     const vehicleEndpointConfig = new sagemaker.CfnEndpointConfig(this, 'VehicleEndpointConfig', {
       productionVariants: [{
         modelName: vehicleModel.attrModelName,
         variantName: 'AllTraffic',
         serverlessConfig: {
-          maxConcurrency: 10,
-          memorySizeInMb: 4096,
+          maxConcurrency: 3,
+          memorySizeInMb: 2048,
         },
       }],
     });

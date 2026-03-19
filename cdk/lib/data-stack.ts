@@ -45,7 +45,7 @@ export class DataStack extends cdk.Stack {
             { storageClass: s3.StorageClass.INFREQUENT_ACCESS, transitionAfter: cdk.Duration.days(90) },
             { storageClass: s3.StorageClass.GLACIER, transitionAfter: cdk.Duration.days(365) },
           ],
-          expiration: cdk.Duration.days(365),
+          expiration: cdk.Duration.days(730),
         },
       ],
       removalPolicy: cdk.RemovalPolicy.RETAIN,
