@@ -23,15 +23,16 @@ Argus turns your iPhone camera into a building x-ray. GPS, compass heading, alti
 
 ## Features
 
-- **3D Ray Casting** — Uses PLUTO building geometry (floors, dimensions) to determine which building the camera ray hits first. Tall buildings correctly occlude shorter ones.
-- **4 Range Modes** — Nearby (30m), Street (100m), Block (300m), Far (800m). Heading cone auto-narrows with distance for precision skyline sniping.
-- **Air Rights Ghost** — Toggle to visualize unused development rights as a translucent overlay above the building. Shows potential additional floors and square footage.
-- **Diplomatic Detection** — Flags foreign government/consular properties and tax-exempt buildings from ownership patterns.
-- **Altitude + Pitch** — Barometric altimeter + gyroscope pitch projects camera ray to ground level when elevated (rooftops, high floors).
-- **Address Search** — Geoclient v2 typeahead for manual building lookup.
-- **Pin Collection** — Save buildings to your personal map. Synced across devices.
-- **CLIP Visual Matching** — Camera photos generate embeddings for building fingerprinting. Index grows with every scan.
-- **Scan Analytics** — Aggregate heat maps of building interest. Which blocks are people looking at?
+- **3D Ray Casting** — Casts a ray from your 3D position through building volumes using NYC LiDAR-measured roof heights (Building Footprints dataset `u9wf-3gbt`). Tall buildings correctly occlude shorter ones. Falls back to PLUTO floor-count estimation when LiDAR data unavailable.
+- **4 Range Modes** — Nearby (30m/90°), Street (100m/45°), Block (300m/20°), Far (800m/8°). Heading cone auto-narrows for precision skyline sniping. Far mode sorts by heading alignment, not distance.
+- **Air Rights Ghost** — Toggle to visualize unused development rights as a translucent green overlay above the building. Shows potential additional floors, unused FAR, and square footage.
+- **Diplomatic Detection** — Flags foreign government/consular properties and tax-exempt buildings from PLUTO ownership patterns (consulates, embassies, missions, UN, city/state/federal agencies).
+- **Altitude + Pitch** — Barometric altimeter (CoreMotion) + gyroscope pitch projects camera ray to ground level when elevated. Enables rooftop and high-floor identification.
+- **Targeting Reticle** — Center crosshair that shrinks with distance mode (120px nearby → 40px far). Green when identified, yellow when searching, pulsing animation.
+- **Address Search** — Geoclient v2 typeahead for manual building lookup and calibration.
+- **Pin Collection** — Save buildings to your personal map. Pinned buildings shown in Explore tab and web dashboard.
+- **CLIP Visual Matching** — CLIP ViT-B/32 on SageMaker Serverless generates 512-dim embeddings. Image index seeded with 5,000+ Street View photos, grows with every user scan.
+- **Scan Analytics** — Real-time heat counters (HEAT#{date}) + daily batch aggregation. Powers interest heat maps and neighborhood trajectory analysis.
 
 ## Architecture
 
@@ -56,6 +57,7 @@ AWS Backend (CDK v2)
 
 NYC Public Data (all free)
   ├── GeoClient v2 — address → BBL resolution
+  ├── Building Footprints — LiDAR roof heights + ground elevation (3D)
   ├── PLUTO — zoning, FAR, year built, building class, owner
   ├── ACRIS — ownership, sales, mortgages (legals + master + parties)
   ├── DOB — permits, violations, certificates
