@@ -114,6 +114,8 @@ export class EnrichmentStack extends cdk.Stack {
         'sightingId.$': '$.sightingId',
         'timestamp.$': '$.timestamp',
         'confidence.$': '$.confidence',
+        'latitude.$': '$.latitude',
+        'longitude.$': '$.longitude',
         'bucket.$': '$.bucket',
         'plateImageKey.$': '$.plateImageKey',
         'vehicleImageKey.$': '$.vehicleImageKey',

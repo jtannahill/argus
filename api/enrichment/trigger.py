@@ -51,12 +51,16 @@ def lambda_handler(event, context):
         item = resp.get('Item', {})
         sighting_id = item.get('sightingId', '')
         confidence = item.get('confidence', 0)
+        latitude = item.get('latitude', 0)
+        longitude = item.get('longitude', 0)
 
         execution_input = {
             'plate': plate,
             'timestamp': timestamp,
             'sightingId': sighting_id,
             'confidence': confidence,
+            'latitude': latitude,
+            'longitude': longitude,
             'bucket': bucket,
             'plateImageKey': plate_image_key,
             'vehicleImageKey': key,

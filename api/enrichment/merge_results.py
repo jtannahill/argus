@@ -102,6 +102,9 @@ def lambda_handler(event, context):
     return {
         'plate': plate,
         'sightingId': sighting_id,
+        'timestamp': timestamp,
+        'latitude': event.get('latitude', 0),
+        'longitude': event.get('longitude', 0),
         'hasMismatch': enrichment['hasMismatch'],
         'mismatches': mismatches,
         'enrichedAt': enrichment['enrichedAt'],
