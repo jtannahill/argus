@@ -11,8 +11,8 @@ class CameraManager: NSObject {
     private let output = AVCaptureVideoDataOutput()
     private let queue = DispatchQueue(label: "camera.queue")
 
-    @ObservationIgnored
-    var onFrame: (@Sendable (CMSampleBuffer) -> Void)?
+    // Stored outside @Observable to allow nonisolated access from delegate
+    nonisolated(unsafe) static var _onFrame: (@Sendable (CMSampleBuffer) -> Void)?
 
     func setup() {
         // Check permission first
@@ -81,6 +81,6 @@ class CameraManager: NSObject {
 
 extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
     nonisolated func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        onFrame?(sampleBuffer)
+        CameraManager._onFrame?(sampleBuffer)
     }
 }

@@ -107,7 +107,7 @@ struct CaptureView: View {
             location.start()
 
             let det = detector
-            camera.onFrame = { buffer in
+            CameraManager._onFrame = { buffer in
                 det.processFrame(buffer)
             }
         }
