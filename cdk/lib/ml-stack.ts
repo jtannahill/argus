@@ -90,7 +90,9 @@ export class MlStack extends cdk.Stack {
     const retrainFn = new lambda.Function(this, 'RetrainTriggerFn', {
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: 'retrain_trigger.lambda_handler',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../../ml')),
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../ml'), {
+        exclude: ['*.tar.gz', 'model_data/**', '*.whl'],
+      }),
       environment: {
         TRAINING_BUCKET: props.trainingBucket.bucketName,
         SAGEMAKER_ROLE_ARN: sagemakerRole.roleArn,
