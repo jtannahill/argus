@@ -13,6 +13,9 @@ import requests
 # Socrata open data base URL
 SOCRATA_BASE = "https://data.cityofnewyork.us/resource"
 
+# NYC Geoclient v2 (address → BBL resolution)
+GEOCLIENT_BASE = "https://api.nyc.gov/geoclient/v2"
+
 # Socrata dataset IDs
 DATASETS = {
     "PLUTO": "64uk-42ks",
@@ -46,6 +49,86 @@ class NYCDataProvider:
             "GEOCLIENT_APP_KEY", ""
         )
         self.socrata_token = socrata_token or os.environ.get("SOCRATA_TOKEN", "")
+        self._geoclient_headers = {
+            "Ocp-Apim-Subscription-Key": self.geoclient_app_key,
+        }
+
+    # ------------------------------------------------------------------
+    # Geoclient v2
+    # ------------------------------------------------------------------
+
+    def geoclient_search(self, query: str) -> Optional[Dict]:
+        """Free-text location search via Geoclient v2.
+
+        Accepts addresses, BBLs, BINs, intersections, or place names.
+        Returns the first successful geocoded result with BBL.
+        """
+        if not self.geoclient_app_key:
+            return None
+        try:
+            resp = requests.get(
+                f"{GEOCLIENT_BASE}/search",
+                params={"input": query},
+                headers=self._geoclient_headers,
+                timeout=5,
+            )
+            if resp.status_code != 200:
+                return None
+            data = resp.json()
+            results = data.get("results", [])
+            for r in results:
+                response = r.get("response", {})
+                bbl = response.get("bbl", "")
+                if bbl and len(bbl) >= 10:
+                    return {
+                        "bbl": bbl[:10],
+                        "address": response.get("firstStreetNameNormalized", ""),
+                        "houseNumber": response.get("houseNumber", ""),
+                        "borough": response.get("firstBoroughName", ""),
+                        "zipCode": response.get("zipCode", ""),
+                        "latitude": response.get("latitude"),
+                        "longitude": response.get("longitude"),
+                        "bin": response.get("buildingIdentificationNumber", ""),
+                    }
+        except (requests.RequestException, ValueError, KeyError):
+            pass
+        return None
+
+    def geoclient_address(self, house_number: str, street: str,
+                          borough: str = None, zip_code: str = None) -> Optional[Dict]:
+        """Structured address lookup via Geoclient v2."""
+        if not self.geoclient_app_key:
+            return None
+        params = {"houseNumber": house_number, "street": street}
+        if borough:
+            params["borough"] = borough
+        if zip_code:
+            params["zip"] = zip_code
+
+        try:
+            resp = requests.get(
+                f"{GEOCLIENT_BASE}/address",
+                params=params,
+                headers=self._geoclient_headers,
+                timeout=5,
+            )
+            if resp.status_code != 200:
+                return None
+            data = resp.json().get("address", {})
+            bbl = data.get("bbl", "")
+            if bbl:
+                return {
+                    "bbl": bbl[:10],
+                    "address": f"{house_number} {data.get('firstStreetNameNormalized', street)}",
+                    "borough": data.get("firstBoroughName", ""),
+                    "zipCode": data.get("zipCode", ""),
+                    "latitude": data.get("latitude"),
+                    "longitude": data.get("longitude"),
+                    "bin": data.get("buildingIdentificationNumber", ""),
+                }
+        except (requests.RequestException, ValueError, KeyError):
+            pass
+        return None
 
     # ------------------------------------------------------------------
     # Public API methods
