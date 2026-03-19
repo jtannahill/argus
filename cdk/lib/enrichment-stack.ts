@@ -42,7 +42,7 @@ export class EnrichmentStack extends cdk.Stack {
     // ── PatternDetection Lambda ───────────────────────────────────────────
     const patternFn = new lambda.Function(this, 'PatternDetectionFunction', {
       runtime: lambda.Runtime.PYTHON_3_12,
-      handler: 'handler.lambda_handler',
+      handler: 'pattern_detection.lambda_handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../api'), {
         bundling: {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,

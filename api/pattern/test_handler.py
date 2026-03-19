@@ -28,7 +28,7 @@ def _make_sightings(plate, count, geohash='dr5reg', hours_apart=24):
     return items
 
 
-@patch('handler.get_table')
+@patch('pattern_detection.get_table')
 def test_repeat_visit_alert(mock_table):
     table_mock = MagicMock()
     table_mock.query.return_value = {'Items': _make_sightings('ABC1234', 4, hours_apart=48)}
@@ -44,20 +44,20 @@ def test_repeat_visit_alert(mock_table):
     }
     mock_table.return_value = table_mock
 
-    from handler import lambda_handler
+    from pattern_detection import lambda_handler
     result = lambda_handler({
         'plate': 'ABC1234',
         'sightingId': 'test',
         'timestamp': '2026-03-19T12:00:00Z',
         'latitude': 25.7617,
         'longitude': -80.1918,
-        'mismatch': False,
+        'hasMismatch': False,
     }, None)
 
     assert any(a['type'] == 'repeat_visit' for a in result['alerts'])
 
 
-@patch('handler.get_table')
+@patch('pattern_detection.get_table')
 def test_circling_alert(mock_table):
     table_mock = MagicMock()
     # 3 sightings within 30 min at different GPS points
@@ -78,35 +78,35 @@ def test_circling_alert(mock_table):
     table_mock.scan.return_value = {'Items': []}
     mock_table.return_value = table_mock
 
-    from handler import lambda_handler
+    from pattern_detection import lambda_handler
     result = lambda_handler({
         'plate': 'XYZ9999',
         'sightingId': 'test',
         'timestamp': '2026-03-19T12:00:00Z',
         'latitude': 25.7617,
         'longitude': -80.1918,
-        'mismatch': False,
+        'hasMismatch': False,
     }, None)
 
     assert any(a['type'] == 'circling' for a in result['alerts'])
 
 
-@patch('handler.get_table')
+@patch('pattern_detection.get_table')
 def test_clone_suspicion_alert(mock_table):
     table_mock = MagicMock()
     table_mock.query.return_value = {'Items': []}
     table_mock.scan.return_value = {'Items': []}
     mock_table.return_value = table_mock
 
-    from handler import lambda_handler
+    from pattern_detection import lambda_handler
     result = lambda_handler({
         'plate': 'ABC1234',
         'sightingId': 'test',
         'timestamp': '2026-03-19T12:00:00Z',
         'latitude': 25.7617,
         'longitude': -80.1918,
-        'mismatch': True,
-        'mismatchDetails': ['make: classifier=Honda, reg=Toyota'],
+        'hasMismatch': True,
+        'mismatches': ['make: classifier=Honda, reg=Toyota'],
     }, None)
 
     assert any(a['type'] == 'clone_suspicion' for a in result['alerts'])
