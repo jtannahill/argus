@@ -5,6 +5,7 @@ import Observation
 class LocationManager: NSObject, CLLocationManagerDelegate {
     var latitude: Double = 0
     var longitude: Double = 0
+    var heading: CLLocationDirection = 0
     var hasLocation = false
 
     private let manager = CLLocationManager()
@@ -19,10 +20,14 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
     func start() {
         manager.requestWhenInUseAuthorization()
         manager.startUpdatingLocation()
+        if CLLocationManager.headingAvailable() {
+            manager.startUpdatingHeading()
+        }
     }
 
     func stop() {
         manager.stopUpdatingLocation()
+        manager.stopUpdatingHeading()
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
@@ -31,6 +36,13 @@ class LocationManager: NSObject, CLLocationManagerDelegate {
             self.latitude = loc.coordinate.latitude
             self.longitude = loc.coordinate.longitude
             self.hasLocation = true
+        }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager, didUpdateHeading newHeading: CLHeading) {
+        let h = newHeading.trueHeading >= 0 ? newHeading.trueHeading : newHeading.magneticHeading
+        Task { @MainActor in
+            self.heading = h
         }
     }
 

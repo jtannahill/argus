@@ -6,7 +6,6 @@ struct ScanView: View {
     @State private var location = LocationManager()
     @State private var identifier = BuildingIdentifier()
     @State private var showSheet = false
-    @State private var heading: CLLocationDirection = 0
 
     var body: some View {
         ZStack {
@@ -102,7 +101,7 @@ struct ScanView: View {
             guard location.hasLocation else { return }
             let loc = CLLocation(latitude: location.latitude, longitude: location.longitude)
             Task {
-                await identifier.identify(location: loc, heading: heading)
+                await identifier.identify(location: loc, heading: location.heading)
             }
         }
         .onChange(of: identifier.currentBuilding?.bbl) { _, newValue in
