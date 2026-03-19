@@ -9,6 +9,7 @@ struct CaptureView: View {
     @State private var lastPlate = ""
     @State private var captureCount = 0
     @State private var recentPlates: Set<String> = []
+    @State private var isPaused = false
 
     var body: some View {
         ZStack {
@@ -60,8 +61,27 @@ struct CaptureView: View {
                         .foregroundColor(.white)
                         .cornerRadius(20)
                     }
+
+                    Button(isPaused ? "Resume" : "Pause") {
+                        isPaused.toggle()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(isPaused ? Color.red : Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(20)
                 }
                 .padding(.top, 20)
+
+                if isPaused {
+                    Text("PAUSED")
+                        .font(.system(size: 16, weight: .bold))
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 8)
+                        .background(Color.red.opacity(0.8))
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
 
                 Spacer()
 
@@ -133,9 +153,8 @@ struct CaptureView: View {
         .onChange(of: detector.lastDetectedPlate) { oldValue, newValue in
             guard let plate = newValue else { return }
 
-            // In Scan mode: auto-capture unique plates
-            // In Point mode: just show detection, user taps to capture (TODO)
-            // In Sweep mode: capture everything including repeats
+            if isPaused { return }
+
             let shouldCapture: Bool
             switch mode {
             case .scan:

@@ -24,6 +24,9 @@ def lambda_handler(event, context):
 
     for record in event.get('Records', []):
         key = record['s3']['object']['key']
+        # S3 event keys are URL-encoded — decode %3A back to :
+        from urllib.parse import unquote_plus
+        key = unquote_plus(key)
 
         match = KEY_PATTERN.match(key)
         if not match:
@@ -59,7 +62,7 @@ def lambda_handler(event, context):
             'vehicleImageKey': key,
         }
 
-        execution_name = f"{plate}-{timestamp}".replace(':', '-').replace('.', '-')[:80]
+        execution_name = re.sub(r'[^a-zA-Z0-9_-]', '-', f"{plate}-{timestamp}")[:80]
 
         sfn_client.start_execution(
             stateMachineArn=state_machine_arn,
