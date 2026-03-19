@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from shared.dynamo import get_table
 from shared.models import building_pk, profile_sk, story_sk
 from shared.nyc_data import NYCDataProvider
+from shared.raycaster import BuildingRayCaster
 
 
 def lambda_handler(event, context):
@@ -89,6 +90,19 @@ def lambda_handler(event, context):
         candidates = provider.resolve_location(lat, lon, heading, radius_m=radius, cone_degrees=cone)
     except Exception as exc:
         return _response(502, {'error': f'NYC data provider error: {str(exc)}'})
+
+    # 3D ray casting: re-sort candidates by ray intersection when altitude
+    # and pitch are available.  This replaces the heading-cone heuristic
+    # with true occlusion-aware ordering.
+    if altitude is not None or pitch is not None:
+        raycaster = BuildingRayCaster()
+        candidates = raycaster.cast(
+            lat, lon,
+            altitude if altitude is not None else 2.0,
+            heading,
+            pitch if pitch is not None else 0.0,
+            candidates,
+        )
 
     table = get_table()
     enriched = []
