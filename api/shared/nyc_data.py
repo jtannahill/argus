@@ -216,27 +216,77 @@ class NYCDataProvider:
     def get_ownership(self, bbl: str) -> List[Dict[str, Any]]:
         """Fetch ownership/deed records from ACRIS for a BBL.
 
-        Args:
-            bbl: 10-digit BBL string.
-
-        Returns:
-            List of ACRIS party records (grantor/grantee on deed transfers).
+        Uses ACRIS Legals (8h5j-fqxa) to find document_ids by BBL,
+        then joins to ACRIS Master (bnx9-e6tj) for deed details.
+        ACRIS legals uses non-zero-padded block/lot numbers.
         """
         borough, block, lot = self._parse_bbl(bbl)
-        url = f"{SOCRATA_BASE}/{DATASETS['ACRIS']}.json"
-        params = {
-            "$where": (
-                f"borough='{borough}' AND block='{block}' AND lot='{lot}'"
-            ),
-            "$order": "recorded_datetime DESC",
-            "$limit": 50,
+        # ACRIS uses non-padded block/lot
+        block_stripped = str(int(block))
+        lot_stripped = str(int(lot))
+
+        # Step 1: Get document IDs from legals table
+        legals_url = f"{SOCRATA_BASE}/8h5j-fqxa.json"
+        legals_params = {
+            "$where": f"borough='{borough}' AND block='{block_stripped}' AND lot='{lot_stripped}'",
+            "$limit": 10,
+            "$order": "good_through_date DESC",
         }
         if self.socrata_token:
-            params["$$app_token"] = self.socrata_token
+            legals_params["$$app_token"] = self.socrata_token
 
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        return response.json()
+        legals_resp = requests.get(legals_url, params=legals_params, timeout=5)
+        legals_resp.raise_for_status()
+        legals = legals_resp.json()
+        if not legals:
+            return []
+
+        # Step 2: Get deed details from master table
+        doc_ids = list(set(r.get("document_id", "") for r in legals if r.get("document_id")))[:5]
+        if not doc_ids:
+            return []
+
+        doc_id_filter = " OR ".join(f"document_id='{d}'" for d in doc_ids)
+        master_url = f"{SOCRATA_BASE}/{DATASETS['ACRIS']}.json"
+        master_params = {
+            "$where": doc_id_filter,
+            "$order": "recorded_datetime DESC",
+            "$limit": 10,
+        }
+        if self.socrata_token:
+            master_params["$$app_token"] = self.socrata_token
+
+        master_resp = requests.get(master_url, params=master_params, timeout=5)
+        master_resp.raise_for_status()
+
+        # Step 3: Get party names
+        parties_url = f"{SOCRATA_BASE}/636b-3b5g.json"
+        parties_params = {
+            "$where": doc_id_filter,
+            "$limit": 20,
+        }
+        if self.socrata_token:
+            parties_params["$$app_token"] = self.socrata_token
+
+        parties_resp = requests.get(parties_url, params=parties_params, timeout=5)
+        parties_resp.raise_for_status()
+
+        # Merge master + parties
+        master_map = {r["document_id"]: r for r in master_resp.json()}
+        results = []
+        for party in parties_resp.json():
+            doc_id = party.get("document_id", "")
+            master = master_map.get(doc_id, {})
+            results.append({
+                "name": party.get("name", ""),
+                "party_type": party.get("party_type", ""),
+                "doc_type": master.get("doc_type", ""),
+                "document_date": master.get("document_date", ""),
+                "document_amt": master.get("document_amt", ""),
+                "recorded_datetime": master.get("recorded_datetime", ""),
+            })
+
+        return results
 
     def get_violations(self, bbl: str) -> Dict[str, List[Dict[str, Any]]]:
         """Fetch active violations from DOB and HPD for a BBL.
