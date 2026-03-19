@@ -95,6 +95,16 @@ def lambda_handler(event, context):
     # and pitch are available.  This replaces the heading-cone heuristic
     # with true occlusion-aware ordering.
     if altitude is not None or pitch is not None:
+        # Fetch measured roof heights from the NYC 3D Building Footprints
+        # dataset (u9wf-3gbt).  Use a radius large enough to cover all
+        # candidates, capped at 300 m to keep the API call fast.
+        building_heights = None
+        try:
+            height_radius = min(max(radius * 1.5, 100), 300)
+            building_heights = provider.get_building_heights(lat, lon, radius_m=height_radius)
+        except Exception:
+            pass  # non-fatal: raycaster falls back to PLUTO numfloors
+
         raycaster = BuildingRayCaster()
         candidates = raycaster.cast(
             lat, lon,
@@ -102,6 +112,7 @@ def lambda_handler(event, context):
             heading,
             pitch if pitch is not None else 0.0,
             candidates,
+            building_heights=building_heights,
         )
 
     table = get_table()

@@ -6,6 +6,8 @@ Socrata open data platform. All data is keyed by BBL (Borough/Block/Lot).
 
 import math
 import os
+import threading
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
@@ -25,6 +27,9 @@ DATASETS = {
     "HPD_VIOLATIONS": "wvxf-dwi5",
     "LPC": "s2zq-q7et",
     "DOF": "8y4t-faws",
+    # NYC 3D Building Footprints — centroid point layer.
+    # Fields: bin, height_roof (ft), ground_elevation (ft), mappluto_bbl, the_geom
+    "BUILDING_FOOTPRINTS_P": "u9wf-3gbt",
 }
 
 
@@ -35,6 +40,14 @@ class NYCDataProvider:
     building identifier throughout — a 10-digit string encoding borough (1),
     block (5), and lot (4).
     """
+
+    # In-memory cache for building height tiles.
+    # Key: (tile_lat, tile_lon) at ~200 m tile resolution.
+    # Value: (timestamp, list[dict])
+    _height_cache: Dict[Tuple[float, float], Tuple[float, List[Dict]]] = {}
+    _height_cache_lock = threading.Lock()
+    # Cache TTL in seconds (15 minutes)
+    _HEIGHT_CACHE_TTL = 900
 
     def __init__(
         self,
@@ -416,6 +429,107 @@ class NYCDataProvider:
         response.raise_for_status()
         results = response.json()
         return results[0] if results else None
+
+    def get_building_heights(
+        self,
+        lat: float,
+        lon: float,
+        radius_m: float = 200,
+    ) -> List[Dict[str, Any]]:
+        """Fetch 3D building height data from NYC Building Footprints (point layer).
+
+        Uses the NYC OTI Building Footprints centroid dataset (u9wf-3gbt), which
+        provides measured roof heights and ground elevations for every building in
+        the five boroughs.  Results are cached in memory per ~200 m tile to avoid
+        repeated API calls during a single session.
+
+        Args:
+            lat: Centre latitude in decimal degrees.
+            lon: Centre longitude in decimal degrees.
+            radius_m: Search radius in metres (default 200).
+
+        Returns:
+            List of dicts, each containing:
+              - ``bin``              — Building Identification Number (str)
+              - ``mappluto_bbl``     — Tax lot BBL (str, may be empty)
+              - ``height_roof_m``   — Measured roof height in metres (float)
+              - ``ground_elev_m``   — Ground elevation in metres (float)
+              - ``latitude``        — Centroid latitude (float)
+              - ``longitude``       — Centroid longitude (float)
+
+        Units: Both height_roof and ground_elevation are stored in feet in the
+        Socrata dataset; this method converts them to metres before returning.
+        """
+        # Tile key: snap lat/lon to ~200 m grid so nearby lookups share a cache entry.
+        tile_size_deg_lat = radius_m / 111_320.0
+        tile_size_deg_lon = radius_m / (111_320.0 * math.cos(math.radians(lat)))
+        tile_key = (
+            round(lat / tile_size_deg_lat) * tile_size_deg_lat,
+            round(lon / tile_size_deg_lon) * tile_size_deg_lon,
+        )
+
+        now = time.monotonic()
+        with self._height_cache_lock:
+            cached = self._height_cache.get(tile_key)
+            if cached is not None:
+                ts, data = cached
+                if now - ts < self._HEIGHT_CACHE_TTL:
+                    return data
+
+        # Build bounding box for Socrata within_box query.
+        lat_off = radius_m / 111_320.0
+        lon_off = radius_m / (111_320.0 * math.cos(math.radians(lat)))
+        min_lat = lat - lat_off
+        max_lat = lat + lat_off
+        min_lon = lon - lon_off
+        max_lon = lon + lon_off
+
+        url = f"{SOCRATA_BASE}/{DATASETS['BUILDING_FOOTPRINTS_P']}.json"
+        params: Dict[str, Any] = {
+            "$where": f"within_box(the_geom,{min_lat},{min_lon},{max_lat},{max_lon})",
+            "$select": "bin,mappluto_bbl,height_roof,ground_elevation,the_geom",
+            "$limit": 500,
+        }
+        if self.socrata_token:
+            params["$$app_token"] = self.socrata_token
+
+        try:
+            resp = requests.get(url, params=params, timeout=6)
+            resp.raise_for_status()
+            raw = resp.json()
+        except (requests.RequestException, ValueError):
+            return []
+
+        results: List[Dict[str, Any]] = []
+        for rec in raw:
+            try:
+                # Extract centroid coordinates from GeoJSON Point geometry.
+                geom = rec.get("the_geom", {})
+                coords = geom.get("coordinates", [])
+                if len(coords) < 2:
+                    continue
+                rec_lon = float(coords[0])
+                rec_lat = float(coords[1])
+
+                # height_roof and ground_elevation are in feet — convert to metres.
+                height_ft = float(rec.get("height_roof", 0) or 0)
+                ground_ft = float(rec.get("ground_elevation", 0) or 0)
+
+                results.append({
+                    "bin": rec.get("bin", ""),
+                    "mappluto_bbl": rec.get("mappluto_bbl", ""),
+                    "height_roof_m": height_ft * 0.3048,
+                    "ground_elev_m": ground_ft * 0.3048,
+                    "latitude": rec_lat,
+                    "longitude": rec_lon,
+                })
+            except (TypeError, ValueError, KeyError):
+                continue
+
+        with self._height_cache_lock:
+            self._height_cache[tile_key] = (now, results)
+
+        return results
 
     # ------------------------------------------------------------------
     # Internal helpers
