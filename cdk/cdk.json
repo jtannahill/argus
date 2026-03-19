@@ -1,0 +1,6 @@
+{
+  "app": "npx ts-node bin/argus.ts",
+  "context": {
+    "@aws-cdk/core:stackName": "argus"
+  }
+}

@@ -1,0 +1,9 @@
+node_modules/
+cdk.out/
+.env
+*.js.map
+__pycache__/
+*.pyc
+.venv/
+dist/
+.next/
