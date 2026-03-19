@@ -4,6 +4,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { createWebSocket } from '@/lib/websocket';
+import { api } from '@/lib/api';
 import PlotMode from './PlotMode';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
@@ -22,8 +23,10 @@ type MapMode = 'live' | 'plot';
 export default function ArgusMap() {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const markersRef = useRef<mapboxgl.Marker[]>([]);
   const [mode, setMode] = useState<MapMode>('live');
   const [sightings, setSightings] = useState<Sighting[]>([]);
+  const [mapReady, setMapReady] = useState(false);
 
   useEffect(() => {
     if (!mapContainer.current) return;
@@ -31,12 +34,51 @@ export default function ArgusMap() {
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/dark-v11',
-      center: [-73.9857, 40.7484], // Manhattan default
+      center: [-73.9857, 40.7484],
       zoom: 13,
     });
 
+    map.current.on('load', () => setMapReady(true));
+
     return () => { map.current?.remove(); };
   }, []);
+
+  // Load recent sightings on mount
+  useEffect(() => {
+    if (!mapReady) return;
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+    fetch(`${apiUrl}/recent?limit=200`)
+      .then(res => res.json())
+      .then((data) => {
+        const results = data.sightings || [];
+        const loaded: Sighting[] = [];
+        results.forEach((r: any) => {
+          if (r.latitude && r.longitude) {
+            const s: Sighting = {
+              plate: r.plate,
+              latitude: r.latitude,
+              longitude: r.longitude,
+              timestamp: r.timestamp || '',
+              confidence: r.confidence || 0,
+            };
+            addPin(s);
+            loaded.push(s);
+          }
+        });
+        setSightings(loaded);
+
+        // Fit map to show all pins
+        if (loaded.length > 0 && map.current) {
+          const bounds = new mapboxgl.LngLatBounds();
+          loaded.forEach(s => bounds.extend([s.longitude, s.latitude]));
+          if (!bounds.isEmpty()) {
+            map.current.fitBounds(bounds, { padding: 50, maxZoom: 15 });
+          }
+        }
+      })
+      .catch(() => {});
+  }, [mapReady]);
 
   // WebSocket for live mode
   useEffect(() => {
@@ -57,9 +99,9 @@ export default function ArgusMap() {
     if (!map.current) return;
 
     const hasAlerts = sighting.alerts && sighting.alerts.length > 0;
-    const color = hasAlerts ? '#ef4444' : '#22c55e'; // red if alert, green if new
+    const color = hasAlerts ? '#ef4444' : '#22c55e';
 
-    new mapboxgl.Marker({ color })
+    const marker = new mapboxgl.Marker({ color })
       .setLngLat([sighting.longitude, sighting.latitude])
       .setPopup(
         new mapboxgl.Popup().setHTML(`
@@ -69,6 +111,7 @@ export default function ArgusMap() {
         `)
       )
       .addTo(map.current);
+    markersRef.current.push(marker);
   }, []);
 
   return (
@@ -86,6 +129,9 @@ export default function ArgusMap() {
         >
           Plot
         </button>
+      </div>
+      <div className="absolute bottom-4 left-4 z-10 bg-gray-800/80 px-3 py-1 rounded text-xs text-gray-300">
+        {sightings.length} sightings
       </div>
       {mode === 'plot' && map.current && <PlotMode map={map.current} />}
       <div ref={mapContainer} className="w-full h-full" />

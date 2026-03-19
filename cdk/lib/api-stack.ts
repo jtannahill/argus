@@ -196,6 +196,30 @@ export class ApiStack extends cdk.Stack {
       authorizationType: apigateway.AuthorizationType.COGNITO,
     });
 
+    // ── Recent Sightings Lambda (public, no auth) ───────────────────────
+    const recentFn = new lambda.Function(this, 'RecentFunction', {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'handler.lambda_handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../api'), {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_12.bundlingImage,
+          command: [
+            'bash', '-c',
+            'cp -r /asset-input/recent/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+          ],
+        },
+      }),
+      environment: { TABLE_NAME: props.table.tableName },
+      timeout: cdk.Duration.seconds(10),
+      memorySize: 256,
+    });
+    props.table.grantReadData(recentFn);
+
+    const recentResource = this.api.root.addResource('recent');
+    recentResource.addMethod('GET', new apigateway.LambdaIntegration(recentFn), {
+      authorizationType: apigateway.AuthorizationType.NONE,
+    });
+
     // ── WebSocket API ──────────────────────────────────────────────────────
 
     // $connect Lambda
