@@ -20,6 +20,13 @@ struct ScanView: View {
             CameraPreview(session: camera.session)
                 .ignoresSafeArea()
 
+            // Reticle — targeting crosshair at center
+            ReticleView(
+                isIdentifying: identifier.isIdentifying,
+                hasResult: identifier.currentBuilding != nil,
+                coneWidth: radiusOptions[radiusIndex].label
+            )
+
             VStack {
                 // Top status
                 HStack(spacing: 8) {
@@ -181,6 +188,13 @@ struct ScanView: View {
                 BuildingSheet(building: building)
                     .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
+            }
+        }
+        .onChange(of: showSheet) { _, isShowing in
+            if isShowing {
+                camera.stop()
+            } else {
+                camera.setup()
             }
         }
     }
