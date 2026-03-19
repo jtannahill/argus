@@ -161,8 +161,10 @@ class NYCDataProvider:
             List of up to 3 PLUTO records (dicts) sorted by distance.
         """
         # Convert radius_m to rough degree offsets
-        lat_offset = radius_m / 111_320.0
-        lon_offset = radius_m / (111_320.0 * math.cos(math.radians(lat)))
+        # Use 1.5x radius for bounding box so cone filter has enough candidates
+        box_radius = radius_m * 1.5
+        lat_offset = box_radius / 111_320.0
+        lon_offset = box_radius / (111_320.0 * math.cos(math.radians(lat)))
 
         min_lat = lat - lat_offset
         max_lat = lat + lat_offset
@@ -175,7 +177,8 @@ class NYCDataProvider:
         )
 
         url = f"{SOCRATA_BASE}/{DATASETS['PLUTO']}.json"
-        params = {"$where": where, "$limit": 50}
+        query_limit = 200 if radius_m > 200 else 50
+        params = {"$where": where, "$limit": query_limit}
         if self.socrata_token:
             params["$$app_token"] = self.socrata_token
 
