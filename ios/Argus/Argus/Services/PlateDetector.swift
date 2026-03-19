@@ -11,7 +11,11 @@ class PlateDetector {
     var smoothedBox: CGRect?  // Smoothed for display
     private let smoothing: CGFloat = 0.3  // 0 = no smoothing, 1 = frozen
 
-    private var bestFrameInWindow: (image: CIImage, sharpness: Double, plate: String, confidence: Double)?
+    var lastVehicleFrame: Data?  // Full frame as JPEG
+    var lastPlateFrame: Data?    // Cropped plate region as JPEG
+
+    private let ciContext = CIContext()
+    private var bestFrameInWindow: (image: CIImage, sharpness: Double, plate: String, confidence: Double, box: CGRect)?
     private var windowStart = Date()
     private let windowDuration: TimeInterval = 1.0
 
@@ -63,16 +67,34 @@ class PlateDetector {
                     if let best = self.bestFrameInWindow {
                         self.lastDetectedPlate = best.plate
                         self.lastConfidence = best.confidence
+                        // Generate JPEG data from best frame
+                        self.lastVehicleFrame = self.jpegData(from: best.image)
+                        self.lastPlateFrame = self.jpegData(from: best.image, crop: best.box)
                     }
                     self.bestFrameInWindow = nil
                     self.windowStart = now
                 }
 
                 if self.bestFrameInWindow == nil || sharpness > self.bestFrameInWindow!.sharpness {
-                    self.bestFrameInWindow = (image, sharpness, detectedText, confidence)
+                    self.bestFrameInWindow = (image, sharpness, detectedText, confidence, box)
                 }
             }
         }
+    }
+
+    private func jpegData(from ciImage: CIImage, crop: CGRect? = nil) -> Data? {
+        var img = ciImage
+        if let crop {
+            let r = CGRect(
+                x: crop.origin.x * img.extent.width,
+                y: crop.origin.y * img.extent.height,
+                width: crop.width * img.extent.width,
+                height: crop.height * img.extent.height
+            )
+            img = img.cropped(to: r)
+        }
+        guard let cgImage = ciContext.createCGImage(img, from: img.extent) else { return nil }
+        return UIImage(cgImage: cgImage).jpegData(compressionQuality: 0.8)
     }
 
     private nonisolated func computeSharpness(image: CIImage, region: CGRect) -> Double {

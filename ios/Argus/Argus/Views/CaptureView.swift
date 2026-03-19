@@ -3,9 +3,12 @@ import SwiftUI
 struct CaptureView: View {
     @State private var camera = CameraManager()
     @State private var detector = PlateDetector()
+    @State private var location = LocationManager()
     @State private var mode: Capture.CaptureMode = .scan
     @State private var showConfirmation = false
     @State private var lastPlate = ""
+    @State private var captureCount = 0
+    @State private var recentPlates: Set<String> = []
 
     var body: some View {
         ZStack {
@@ -21,7 +24,6 @@ struct CaptureView: View {
                         .frame(width: rect.width, height: rect.height)
                         .position(x: rect.midX, y: rect.midY)
 
-                    // Plate text label above the box
                     if let plate = detector.lastDetectedPlate {
                         Text(plate)
                             .font(.system(size: 14, weight: .bold, design: .monospaced))
@@ -38,7 +40,6 @@ struct CaptureView: View {
             .ignoresSafeArea()
 
             VStack {
-                // Debug info
                 if let error = camera.errorMessage {
                     Text(error)
                         .font(.caption)
@@ -64,28 +65,81 @@ struct CaptureView: View {
 
                 Spacer()
 
+                // Status bar
+                HStack {
+                    if location.hasLocation {
+                        Image(systemName: "location.fill")
+                            .foregroundColor(.green)
+                            .font(.caption)
+                    }
+                    Text("\(captureCount) captured")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                    if OfflineQueue.shared.pendingCount > 0 {
+                        Text("• \(OfflineQueue.shared.pendingCount) pending")
+                            .font(.caption)
+                            .foregroundColor(.orange)
+                    }
+                }
+                .padding(.bottom, 8)
+
                 if showConfirmation {
-                    Text(lastPlate)
-                        .font(.system(size: 24, weight: .bold, design: .monospaced))
-                        .padding()
-                        .background(Color.green.opacity(0.9))
-                        .foregroundColor(.white)
-                        .cornerRadius(12)
-                        .transition(.move(edge: .bottom))
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.white)
+                        Text(lastPlate)
+                            .font(.system(size: 20, weight: .bold, design: .monospaced))
+                    }
+                    .padding()
+                    .background(Color.green.opacity(0.9))
+                    .foregroundColor(.white)
+                    .cornerRadius(12)
+                    .transition(.move(edge: .bottom))
+                    .padding(.bottom, 40)
                 }
             }
             .padding(.top, 60)
         }
         .onAppear {
+            // Auth + camera + GPS
+            Task { await AuthManager.shared.ensureToken() }
             camera.setup()
+            location.start()
+
             let det = detector
             camera.onFrame = { buffer in
                 det.processFrame(buffer)
             }
         }
-        .onDisappear { camera.stop() }
+        .onDisappear {
+            camera.stop()
+            location.stop()
+        }
         .onChange(of: detector.lastDetectedPlate) { oldValue, newValue in
             guard let plate = newValue else { return }
+
+            // In Scan mode: auto-capture unique plates
+            // In Point mode: just show detection, user taps to capture (TODO)
+            // In Sweep mode: capture everything including repeats
+            let shouldCapture: Bool
+            switch mode {
+            case .scan:
+                shouldCapture = !recentPlates.contains(plate)
+            case .point:
+                shouldCapture = false // TODO: tap to capture
+            case .sweep:
+                shouldCapture = true
+            }
+
+            if shouldCapture {
+                captureAndUpload(plate: plate)
+                recentPlates.insert(plate)
+                // Clear recent plates after 5 minutes to allow re-capture
+                DispatchQueue.main.asyncAfter(deadline: .now() + 300) {
+                    recentPlates.remove(plate)
+                }
+            }
+
             lastPlate = plate
             showConfirmation = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
@@ -94,10 +148,27 @@ struct CaptureView: View {
         }
     }
 
-    /// Convert Vision bounding box (normalized, origin bottom-left) to screen coordinates
+    private func captureAndUpload(plate: String) {
+        guard let vehicleData = detector.lastVehicleFrame,
+              let plateData = detector.lastPlateFrame else { return }
+
+        let capture = Capture(
+            id: UUID(),
+            plate: plate,
+            confidence: detector.lastConfidence,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            timestamp: Date(),
+            mode: mode
+        )
+
+        captureCount += 1
+        OfflineQueue.shared.enqueue(capture: capture, plateImage: plateData, vehicleImage: vehicleData)
+    }
+
     private func convertBoundingBox(_ box: CGRect, in size: CGSize) -> CGRect {
         let x = box.origin.x * size.width
-        let y = (1 - box.origin.y - box.height) * size.height  // flip Y axis
+        let y = (1 - box.origin.y - box.height) * size.height
         let w = box.width * size.width
         let h = box.height * size.height
         return CGRect(x: x, y: y, width: w, height: h)
