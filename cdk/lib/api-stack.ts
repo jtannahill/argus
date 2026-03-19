@@ -59,7 +59,7 @@ export class ApiStack extends cdk.Stack {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
           command: [
             'bash', '-c',
-            'cp -r /asset-input/presign/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/presign/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
           ],
         },
       }),
@@ -90,7 +90,7 @@ export class ApiStack extends cdk.Stack {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
           command: [
             'bash', '-c',
-            'cp -r /asset-input/identify/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/identify/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
           ],
         },
       }),
@@ -120,7 +120,7 @@ export class ApiStack extends cdk.Stack {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
           command: [
             'bash', '-c',
-            'cp -r /asset-input/buildings/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/buildings/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
           ],
         },
       }),
@@ -146,7 +146,7 @@ export class ApiStack extends cdk.Stack {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
           command: [
             'bash', '-c',
-            'cp -r /asset-input/search/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/search/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
           ],
         },
       }),
@@ -171,7 +171,7 @@ export class ApiStack extends cdk.Stack {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
           command: [
             'bash', '-c',
-            'cp -r /asset-input/recent/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/recent/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
           ],
         },
       }),
@@ -197,7 +197,7 @@ export class ApiStack extends cdk.Stack {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
           command: [
             'bash', '-c',
-            'cp -r /asset-input/websocket/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/websocket/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
           ],
         },
       }),
@@ -216,7 +216,7 @@ export class ApiStack extends cdk.Stack {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
           command: [
             'bash', '-c',
-            'cp -r /asset-input/websocket/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/websocket/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
           ],
         },
       }),
@@ -283,7 +283,7 @@ export class ApiStack extends cdk.Stack {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
           command: [
             'bash', '-c',
-            'cp -r /asset-input/websocket/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/websocket/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
           ],
         },
       }),

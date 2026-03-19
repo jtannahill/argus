@@ -10,37 +10,38 @@ struct BuildingCandidate: Codable, Identifiable {
     var id: String { bbl }
     let bbl: String
     let address: String
-    let distance: Double
-    let score: Double
+    let distance: Double?
+    let score: Double?
     var profile: BuildingProfile?
     var story: BuildingStory?
 }
 
 struct BuildingProfile: Codable {
-    let yearBuilt: Int?
-    let stories: Int?
-    let units: Int?
-    let lotArea: Int?
+    let yearBuilt: String?
+    let stories: String?
+    let units: String?
+    let residentialUnits: String?
+    let lotArea: String?
     let buildingClass: String?
     let zoneDist: String?
-    let far: Double?
-    let maxFar: Double?
-    let landmark: Bool?
+    let far: String?
+    let maxFar: String?
+    let landmark: String?
     let landmarkName: String?
     let architect: String?
     let architecturalStyle: String?
-    let assessedLand: Int?
-    let assessedTotal: Int?
+    let assessedLand: String?
+    let assessedTotal: String?
     let taxClass: String?
     let latitude: Double?
     let longitude: Double?
 }
 
 struct BuildingStory: Codable {
-    let headline: String
-    let narrative: String
-    let funFacts: [String]
-    let generatedAt: String
+    let headline: String?
+    let narrative: String?
+    let funFacts: [String]?
+    let generatedAt: String?
 }
 
 // MARK: - Detail API

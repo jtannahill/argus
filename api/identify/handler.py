@@ -41,21 +41,61 @@ def lambda_handler(event, context):
     table = get_table()
     enriched = []
     for candidate in candidates:
-        bbl = candidate.get('bbl', '').strip()
-        entry = dict(candidate)
+        raw_bbl = candidate.get('bbl', '').strip()
+        # PLUTO returns BBL as decimal string like "1004830001.00000000"
+        bbl = raw_bbl.split('.')[0] if '.' in raw_bbl else raw_bbl
 
+        # Normalize to match iOS BuildingCandidate model
+        try:
+            blat = float(candidate.get('latitude', 0))
+            blon = float(candidate.get('longitude', 0))
+            dist = provider._haversine(lat, lon, blat, blon)
+        except (TypeError, ValueError):
+            dist = 0
+
+        entry = {
+            'id': bbl,
+            'bbl': bbl,
+            'address': candidate.get('address', ''),
+            'distance': round(dist, 1),
+            'score': 0.0,
+            'profile': {
+                'yearBuilt': candidate.get('yearbuilt', ''),
+                'stories': candidate.get('numfloors', ''),
+                'units': candidate.get('unitstotal', ''),
+                'residentialUnits': candidate.get('unitsres', ''),
+                'lotArea': candidate.get('lotarea', ''),
+                'buildingClass': candidate.get('bldgclass', ''),
+                'zoneDist': candidate.get('zonedist1', ''),
+                'far': candidate.get('builtfar', ''),
+                'maxFar': candidate.get('residfar', ''),
+                'landmark': candidate.get('landmark', ''),
+                'landmarkName': candidate.get('landmkname', ''),
+                'architect': None,
+                'architecturalStyle': None,
+                'assessedLand': candidate.get('assessland', ''),
+                'assessedTotal': candidate.get('assesstot', ''),
+                'taxClass': candidate.get('taxclass', ''),
+                'latitude': blat,
+                'longitude': blon,
+            },
+        }
+
+        # Check DynamoDB cache for story
         if bbl:
             pk = building_pk(bbl)
-
-            profile_resp = table.get_item(Key={'PK': pk, 'SK': profile_sk()})
-            profile_item = profile_resp.get('Item')
-            if profile_item:
-                entry['cached_profile'] = _convert_decimals(profile_item)
-
-            story_resp = table.get_item(Key={'PK': pk, 'SK': story_sk()})
-            story_item = story_resp.get('Item')
-            if story_item:
-                entry['cached_story'] = _convert_decimals(story_item)
+            try:
+                story_resp = table.get_item(Key={'PK': pk, 'SK': story_sk()})
+                story_item = story_resp.get('Item')
+                if story_item:
+                    entry['story'] = {
+                        'headline': story_item.get('headline', ''),
+                        'narrative': story_item.get('narrative', ''),
+                        'funFacts': story_item.get('funFacts', []),
+                        'generatedAt': story_item.get('generatedAt', ''),
+                    }
+            except Exception:
+                pass
 
         enriched.append(entry)
 

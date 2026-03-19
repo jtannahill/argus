@@ -50,7 +50,7 @@ struct ExploreMapView: View {
     }
 
     private func pinColor(for building: BuildingCandidate) -> Color {
-        if building.profile?.landmark == true {
+        if let lm = building.profile?.landmark, !lm.isEmpty, lm != "N" {
             return .yellow
         }
         return .green

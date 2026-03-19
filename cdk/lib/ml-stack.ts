@@ -54,7 +54,7 @@ export class MlStack extends cdk.Stack {
         variantName: 'AllTraffic',
         serverlessConfig: {
           maxConcurrency: 3,
-          memorySizeInMb: 4096,
+          memorySizeInMb: 3072,
         },
       }],
     });
@@ -71,7 +71,7 @@ export class MlStack extends cdk.Stack {
       code: lambda.Code.fromAsset(path.join(__dirname, '../../api'), {
         bundling: {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
-          command: ['bash', '-c', 'cp -r /asset-input/scan_analytics/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared'],
+          command: ['bash', '-c', 'pip install requests -t /asset-output/ && cp -r /asset-input/scan_analytics/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared'],
         },
       }),
       environment: { TABLE_NAME: props.table.tableName },

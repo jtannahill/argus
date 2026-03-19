@@ -34,7 +34,7 @@ struct BuildingSheet: View {
 
                 HStack(spacing: 10) {
                     if let profile = building.profile ?? detail?.profile {
-                        if profile.landmark == true {
+                        if let lm = profile.landmark, !lm.isEmpty, lm != "N" {
                             Label(profile.landmarkName ?? "Landmark", systemImage: "star.fill")
                                 .font(.caption)
                                 .padding(.horizontal, 8)
@@ -43,12 +43,12 @@ struct BuildingSheet: View {
                                 .foregroundColor(.yellow)
                                 .cornerRadius(4)
                         }
-                        if let year = profile.yearBuilt {
+                        if let year = profile.yearBuilt, !year.isEmpty {
                             Text("Built \(year)")
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                         }
-                        if let stories = profile.stories {
+                        if let stories = profile.stories, !stories.isEmpty {
                             Text("\(stories) floors")
                                 .font(.caption)
                                 .foregroundColor(.secondary)

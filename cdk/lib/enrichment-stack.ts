@@ -33,7 +33,7 @@ export class EnrichmentStack extends cdk.Stack {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
           command: [
             'bash', '-c',
-            'cp -r /asset-input/data_assembly/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/data_assembly/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
           ],
         },
       }),
@@ -57,7 +57,7 @@ export class EnrichmentStack extends cdk.Stack {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
           command: [
             'bash', '-c',
-            'cp -r /asset-input/story/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/story/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
           ],
         },
       }),
@@ -80,7 +80,7 @@ export class EnrichmentStack extends cdk.Stack {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
           command: [
             'bash', '-c',
-            'cp -r /asset-input/visual_match/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/visual_match/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
           ],
         },
       }),
@@ -108,7 +108,7 @@ export class EnrichmentStack extends cdk.Stack {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
           command: [
             'bash', '-c',
-            'cp -r /asset-input/scan_analytics/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/scan_analytics/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
           ],
         },
       }),
@@ -162,7 +162,7 @@ export class EnrichmentStack extends cdk.Stack {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
           command: [
             'bash', '-c',
-            'cp -r /asset-input/enrichment/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/enrichment/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
           ],
         },
       }),
@@ -198,7 +198,7 @@ export class EnrichmentStack extends cdk.Stack {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
           command: [
             'bash', '-c',
-            'cp -r /asset-input/scan_analytics/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/scan_analytics/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
           ],
         },
       }),
