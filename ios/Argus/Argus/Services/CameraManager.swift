@@ -13,26 +13,39 @@ class CameraManager: NSObject {
     @ObservationIgnored
     var onFrame: (@Sendable (CMSampleBuffer) -> Void)?
 
-    @MainActor
     func setup() {
-        session.sessionPreset = .high
-        guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
-              let input = try? AVCaptureDeviceInput(device: device) else { return }
+        queue.async { [self] in
+            session.beginConfiguration()
+            session.sessionPreset = .high
 
-        if session.canAddInput(input) { session.addInput(input) }
+            guard let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+                  let input = try? AVCaptureDeviceInput(device: device) else {
+                session.commitConfiguration()
+                return
+            }
 
-        output.setSampleBufferDelegate(self, queue: queue)
-        output.alwaysDiscardsLateVideoFrames = true
-        if session.canAddOutput(output) { session.addOutput(output) }
+            if session.canAddInput(input) { session.addInput(input) }
 
-        session.startRunning()
-        isRunning = true
+            output.setSampleBufferDelegate(self, queue: queue)
+            output.alwaysDiscardsLateVideoFrames = true
+            if session.canAddOutput(output) { session.addOutput(output) }
+
+            session.commitConfiguration()
+            session.startRunning()
+
+            Task { @MainActor in
+                self.isRunning = true
+            }
+        }
     }
 
-    @MainActor
     func stop() {
-        session.stopRunning()
-        isRunning = false
+        queue.async { [self] in
+            session.stopRunning()
+            Task { @MainActor in
+                self.isRunning = false
+            }
+        }
     }
 }
 
