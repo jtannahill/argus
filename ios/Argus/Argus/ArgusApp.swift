@@ -1,3 +1,10 @@
+//
+//  ArgusApp.swift
+//  Argus
+//
+//  Created by James T on 3/19/26.
+//
+
 import SwiftUI
 
 @main
@@ -6,12 +13,5 @@ struct ArgusApp: App {
         WindowGroup {
             ContentView()
         }
-    }
-}
-
-struct ContentView: View {
-    var body: some View {
-        Text("Argus")
-            .font(.largeTitle)
     }
 }

@@ -44,7 +44,7 @@ export default function AlertsPanel() {
           {alerts.map((a) => (
             <Link
               key={a.alertId}
-              href={`/plates/${a.plate}`}
+              href={`/plates?plate=${a.plate}`}
               className={`block p-3 border-l-4 m-2 rounded text-sm ${ALERT_COLORS[a.type] || 'border-gray-500'}`}
             >
               <div className="flex justify-between">

@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import DiplomaticBadge from '@/components/DiplomaticBadge';
@@ -32,14 +32,16 @@ interface PlateData {
   }[];
 }
 
-export default function PlateDetailPage() {
-  const { plate } = useParams<{ plate: string }>();
+function PlateDetailContent() {
+  const searchParams = useSearchParams();
+  const plate = searchParams.get('plate') || '';
   const [data, setData] = useState<PlateData | null>(null);
 
   useEffect(() => {
     if (plate) api.getPlate(plate).then(setData);
   }, [plate]);
 
+  if (!plate) return <div className="p-8 text-white">No plate specified</div>;
   if (!data) return <div className="p-8 text-white">Loading...</div>;
 
   const reg = data.enrichment.registration ? JSON.parse(data.enrichment.registration) : {};
@@ -110,5 +112,13 @@ export default function PlateDetailPage() {
         </tbody>
       </table>
     </div>
+  );
+}
+
+export default function PlateDetailPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-white">Loading...</div>}>
+      <PlateDetailContent />
+    </Suspense>
   );
 }

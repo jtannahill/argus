@@ -37,7 +37,7 @@ export default function SearchBar() {
           {results.map((r) => (
             <button
               key={r.plate}
-              onClick={() => { setOpen(false); router.push(`/plates/${r.plate}`); }}
+              onClick={() => { setOpen(false); router.push(`/plates?plate=${r.plate}`); }}
               className="w-full text-left px-4 py-2 hover:bg-gray-700 text-sm"
             >
               <span className="text-white font-mono">{r.plate}</span>
