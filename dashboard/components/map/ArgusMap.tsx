@@ -31,8 +31,8 @@ export default function ArgusMap() {
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/dark-v11',
-      center: [-80.1918, 25.7617], // Miami default
-      zoom: 12,
+      center: [-73.9857, 40.7484], // Manhattan default
+      zoom: 13,
     });
 
     return () => { map.current?.remove(); };
