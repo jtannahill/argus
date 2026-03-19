@@ -25,6 +25,8 @@ struct BuildingSheet: View {
     @State private var isLoading = false
     @State private var isPinned = false
     @State private var isPinning = false
+    @State private var showCorrection = false
+    @State private var flagSent = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -35,6 +37,16 @@ struct BuildingSheet: View {
                         .font(.system(size: 20, weight: .bold))
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
+
+                    // Flag wrong building
+                    Button {
+                        showCorrection = true
+                    } label: {
+                        Image(systemName: flagSent ? "checkmark.circle.fill" : "exclamationmark.triangle")
+                            .font(.system(size: 20))
+                            .foregroundColor(flagSent ? .green : .orange)
+                    }
+                    .disabled(flagSent)
 
                     // Share button
                     Button {
@@ -130,6 +142,16 @@ struct BuildingSheet: View {
         }
         .task {
             await loadDetail()
+        }
+        .sheet(isPresented: $showCorrection) {
+            CorrectionSheet(
+                wrongBuilding: building,
+                onCorrected: { correctedBuilding in
+                    flagSent = true
+                    showCorrection = false
+                }
+            )
+            .presentationDetents([.medium])
         }
     }
 
