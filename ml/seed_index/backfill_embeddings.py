@@ -56,14 +56,26 @@ def backfill(table_name, bucket, endpoint, dry_run=False):
                 print(f"  [{i+1}/{len(images)}] Skipping {key} (too small: {len(img_bytes)} bytes)")
                 continue
 
-            # Generate embedding via SageMaker
-            resp = sagemaker.invoke_endpoint(
-                EndpointName=endpoint,
-                ContentType='image/jpeg',
-                Body=img_bytes,
-            )
-            result = json.loads(resp['Body'].read())
-            embedding = result.get('embedding', [])
+            # Generate embedding via SageMaker (retry on cold start)
+            import time
+            embedding = []
+            for attempt in range(3):
+                try:
+                    resp = sagemaker.invoke_endpoint(
+                        EndpointName=endpoint,
+                        ContentType='image/jpeg',
+                        Body=img_bytes,
+                    )
+                    result = json.loads(resp['Body'].read())
+                    embedding = result.get('embedding', [])
+                    break
+                except Exception as e:
+                    if attempt < 2:
+                        wait = 30 * (attempt + 1)
+                        print(f"  [{i+1}/{len(images)}] Cold start, retrying in {wait}s...")
+                        time.sleep(wait)
+                    else:
+                        raise
 
             if not embedding or len(embedding) < 512:
                 print(f"  [{i+1}/{len(images)}] Bad embedding for {key}: len={len(embedding)}")
