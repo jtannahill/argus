@@ -1,5 +1,13 @@
 # Argus
 
+![Status](https://img.shields.io/badge/status-active-success)
+![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)
+![AWS CDK](https://img.shields.io/badge/AWS%20CDK-FF9900?logo=amazonwebservices&logoColor=white)
+![AWS Lambda](https://img.shields.io/badge/AWS%20Lambda-FF9900?logo=awslambda&logoColor=white)
+![Bedrock](https://img.shields.io/badge/Bedrock-232F3E?logo=amazonwebservices&logoColor=white)
+![Claude](https://img.shields.io/badge/Claude-D97757?logo=anthropic&logoColor=white)
+![Last Commit](https://img.shields.io/github/last-commit/jtannahill/argus)
+
 **Building Intelligence for NYC** — Point your phone at any building and instantly see its story, ownership, value, violations, and development potential.
 
 Argus turns your iPhone camera into a building x-ray. GPS, compass heading, altitude, and 3D ray casting identify which building you're looking at. Eight NYC public data APIs assemble the full picture. AI generates the narrative.
