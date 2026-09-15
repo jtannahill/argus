@@ -1,6 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
-import { Template } from 'aws-cdk-lib/assertions';
+import { Template, Match } from 'aws-cdk-lib/assertions';
 import { DataStack } from '../lib/data-stack';
 import { ApiStack } from '../lib/api-stack';
 import { EnrichmentStack } from '../lib/enrichment-stack';
@@ -23,17 +22,34 @@ describe('EnrichmentStack', () => {
     template.resourceCountIs('AWS::StepFunctions::StateMachine', 1);
   });
 
-  test('creates plate_lookup Lambda handler', () => {
+  test('creates DataAssembly Lambda', () => {
     template.hasResourceProperties('AWS::Lambda::Function', {
-      Handler: 'plate_lookup.lambda_handler',
+      Handler: 'handler.lambda_handler',
       Runtime: 'python3.12',
     });
   });
 
-  test('creates merge_results Lambda handler', () => {
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      Handler: 'merge_results.lambda_handler',
-      Runtime: 'python3.12',
+  test('creates StoryGenerator Lambda with Bedrock permissions', () => {
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: Match.objectLike({
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'bedrock:InvokeModel',
+          }),
+        ]),
+      }),
+    });
+  });
+
+  test('creates VisualMatch Lambda with SageMaker permissions', () => {
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: Match.objectLike({
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'sagemaker:InvokeEndpoint',
+          }),
+        ]),
+      }),
     });
   });
 
@@ -44,10 +60,17 @@ describe('EnrichmentStack', () => {
     });
   });
 
-  test('creates pattern detection Lambda handler', () => {
-    template.hasResourceProperties('AWS::Lambda::Function', {
-      Handler: 'pattern_detection.lambda_handler',
-      Runtime: 'python3.12',
+  test('creates daily aggregation EventBridge rule at 2 AM UTC', () => {
+    template.hasResourceProperties('AWS::Events::Rule', {
+      ScheduleExpression: 'cron(0 2 * * ? *)',
     });
+  });
+
+  test('does not create PlateLookup or PatternDetection Lambdas', () => {
+    const functions = template.findResources('AWS::Lambda::Function');
+    const handlers = Object.values(functions).map((r: any) => r.Properties.Handler);
+    expect(handlers).not.toContain('plate_lookup.lambda_handler');
+    expect(handlers).not.toContain('pattern_detection.lambda_handler');
+    expect(handlers).not.toContain('merge_results.lambda_handler');
   });
 });

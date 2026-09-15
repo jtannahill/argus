@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Argus",
-  description: "License plate intelligence",
+  title: "Argus — Building Intelligence",
+  description: "Building intelligence platform — scan history, ownership, violations, and story generation for NYC properties.",
 };
 
 export default function RootLayout({

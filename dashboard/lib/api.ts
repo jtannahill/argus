@@ -1,7 +1,7 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 async function fetchApi(path: string, options?: RequestInit) {
-  const token = localStorage.getItem('argus_token') || '';
+  const token = typeof window !== 'undefined' ? localStorage.getItem('argus_token') || '' : '';
   const res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
@@ -14,14 +14,19 @@ async function fetchApi(path: string, options?: RequestInit) {
   return res.json();
 }
 
-export const api = {
-  getPlate: (plate: string) => fetchApi(`/plates/${plate}`),
-  getSightings: (plate: string, limit = 25, nextToken?: string) =>
-    fetchApi(`/plates/${plate}/sightings?limit=${limit}${nextToken ? `&nextToken=${nextToken}` : ''}`),
-  search: (q: string) => fetchApi(`/search?q=${q}`),
-  getAlerts: (limit = 50) => fetchApi(`/alerts?limit=${limit}`),
-  getGeofences: () => fetchApi('/geofences'),
-  createGeofence: (data: { label: string; polygon: number[][]; alertFor: string }) =>
-    fetchApi('/geofences', { method: 'POST', body: JSON.stringify(data) }),
-  deleteGeofence: (id: string) => fetchApi(`/geofences/${id}`, { method: 'DELETE' }),
-};
+export async function getBuilding(bbl: string) {
+  return fetchApi(`/buildings/${bbl}`);
+}
+
+export async function getRecentScans(limit = 50) {
+  return fetchApi(`/scans/recent?limit=${limit}`);
+}
+
+export async function getTrending(date?: string) {
+  const qs = date ? `?date=${encodeURIComponent(date)}` : '';
+  return fetchApi(`/buildings/trending${qs}`);
+}
+
+export async function searchBuildings(lat: number, lon: number, radius = 100) {
+  return fetchApi(`/buildings/search?lat=${lat}&lon=${lon}&radius=${radius}`);
+}

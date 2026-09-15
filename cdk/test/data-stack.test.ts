@@ -59,8 +59,8 @@ describe('DataStack', () => {
     });
   });
 
-  test('creates training data S3 bucket', () => {
-    template.resourceCountIs('AWS::S3::Bucket', 2);
+  test('creates 4 S3 buckets (captures, training, index, embeddings)', () => {
+    template.resourceCountIs('AWS::S3::Bucket', 4);
   });
 
   test('enables TTL on DynamoDB table', () => {

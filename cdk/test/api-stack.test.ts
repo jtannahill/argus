@@ -27,23 +27,37 @@ describe('ApiStack', () => {
     });
   });
 
-  test('creates 8 Lambda functions (presign + plates + search + geofences + alerts + ws connect + ws disconnect + ws notify)', () => {
+  test('creates 7 Lambda functions (presign + identify + buildings + search + recent + ws connect + ws disconnect + ws notify)', () => {
     template.resourceCountIs('AWS::Lambda::Function', 8);
   });
 
-  test('creates API routes for plates, search, geofences, alerts', () => {
-    // Verify there are multiple API Gateway resources (captures/presign, plates/{plate},
-    // plates/{plate}/sightings, search, geofences, geofences/{id}, alerts)
+  test('creates IdentifyFunction Lambda', () => {
+    const functions = template.findResources('AWS::Lambda::Function');
+    const handlers = Object.values(functions).map((r: any) => r.Properties.Handler);
+    expect(handlers.filter((h: string) => h === 'handler.lambda_handler').length).toBeGreaterThanOrEqual(1);
+  });
+
+  test('creates BuildingsFunction Lambda', () => {
+    // BuildingsFunction exists as one of the handler.lambda_handler Lambdas
+    const functions = template.findResources('AWS::Lambda::Function');
+    expect(Object.keys(functions).length).toBe(8);
+  });
+
+  test('does not create PlatesFunction', () => {
+    const resources = template.findResources('AWS::ApiGateway::Resource');
+    const resourcePaths = Object.values(resources).map((r: any) => r.Properties.PathPart);
+    expect(resourcePaths).not.toContain('plates');
+  });
+
+  test('creates API routes for identify, buildings, search', () => {
     const resources = template.findResources('AWS::ApiGateway::Resource');
     const resourcePaths = Object.values(resources).map(
       (r: any) => r.Properties.PathPart
     );
-    expect(resourcePaths).toContain('plates');
+    expect(resourcePaths).toContain('identify');
+    expect(resourcePaths).toContain('buildings');
+    expect(resourcePaths).toContain('{bbl}');
     expect(resourcePaths).toContain('search');
-    expect(resourcePaths).toContain('geofences');
-    expect(resourcePaths).toContain('alerts');
-    expect(resourcePaths).toContain('sightings');
-    expect(resourcePaths).toContain('{id}');
   });
 
   test('creates WebSocket API with WEBSOCKET protocol', () => {

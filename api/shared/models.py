@@ -1,74 +1,76 @@
-"""DynamoDB entity key patterns for Argus single-table design."""
+"""DynamoDB key patterns for Argus Building Intelligence.
 
-from datetime import datetime, timezone
-import hashlib
+Single-table design. BBL (Borough/Block/Lot) is the universal building identifier.
+"""
 
+def building_pk(bbl: str) -> str:
+    return f"BLDG#{bbl.strip()}"
 
-def sighting_pk(plate: str) -> str:
-    return f"PLATE#{plate.upper().replace(' ', '')}"
+def profile_sk() -> str:
+    return "PROFILE"
 
+def story_sk() -> str:
+    return "STORY"
 
-def sighting_sk(timestamp: str) -> str:
-    return f"SIGHTING#{timestamp}"
+def owner_sk(date: str) -> str:
+    return f"OWNER#{date}"
 
+def violation_sk(violation_id: str) -> str:
+    return f"VIOLATION#{violation_id}"
 
-def enrichment_sk() -> str:
-    return "ENRICHMENT#latest"
+def permit_sk(permit_id: str) -> str:
+    return f"PERMIT#{permit_id}"
 
+def image_sk(timestamp: str) -> str:
+    return f"IMAGE#{timestamp}"
 
-def geofence_pk(geofence_id: str) -> str:
-    return f"GEOFENCE#{geofence_id}"
+def scan_pk(user_id: str, timestamp: str) -> str:
+    return f"SCAN#{user_id}#{timestamp}"
 
+def scan_sk() -> str:
+    return "SCAN"
 
-def connection_pk(connection_id: str) -> str:
-    return f"CONNECTION#{connection_id}"
+def geo_pk(lat: float, lon: float) -> str:
+    return f"GEO#{geohash6(lat, lon)}"
 
+def heat_pk(date: str) -> str:
+    return f"HEAT#{date}"
 
-def alert_pk(alert_id: str) -> str:
-    return f"ALERT#{alert_id}"
+def analytics_pk(period: str) -> str:
+    return f"ANALYTICS#{period}"
 
+# Base32 geohash encoding
+_BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz"
 
 def geohash6(lat: float, lon: float) -> str:
-    """Compute a 6-character geohash (~1.2km precision)."""
-    base32 = '0123456789bcdefghjkmnpqrstuvwxyz'
+    """Encode lat/lon to 6-character geohash (~600m precision)."""
     lat_range = [-90.0, 90.0]
     lon_range = [-180.0, 180.0]
-    bits = [16, 8, 4, 2, 1]
-    hash_str = []
     is_lon = True
     bit = 0
     ch = 0
+    result = []
 
-    while len(hash_str) < 6:
+    while len(result) < 6:
         if is_lon:
             mid = (lon_range[0] + lon_range[1]) / 2
-            if lon > mid:
-                ch |= bits[bit]
+            if lon >= mid:
+                ch |= (1 << (4 - bit))
                 lon_range[0] = mid
             else:
                 lon_range[1] = mid
         else:
             mid = (lat_range[0] + lat_range[1]) / 2
-            if lat > mid:
-                ch |= bits[bit]
+            if lat >= mid:
+                ch |= (1 << (4 - bit))
                 lat_range[0] = mid
             else:
                 lat_range[1] = mid
         is_lon = not is_lon
-        if bit < 4:
-            bit += 1
-        else:
-            hash_str.append(base32[ch])
+        bit += 1
+        if bit == 5:
+            result.append(_BASE32[ch])
             bit = 0
             ch = 0
 
-    return ''.join(hash_str)
-
-
-def gsi1_pk(lat: float, lon: float) -> str:
-    return f"GPS_HASH#{geohash6(lat, lon)}"
-
-
-def gsi2_pk(timestamp: str) -> str:
-    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
-    return f"DATE#{dt.strftime('%Y-%m-%d')}"
+    return "".join(result)

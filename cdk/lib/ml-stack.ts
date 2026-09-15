@@ -38,85 +38,61 @@ export class MlStack extends cdk.Stack {
       ],
     }));
 
-    // Plate Read endpoint (Serverless Inference)
-    const plateReadModel = new sagemaker.CfnModel(this, 'PlateReadModel', {
+    // CLIP embedding model endpoint (Serverless Inference)
+    const clipModel = new sagemaker.CfnModel(this, 'ClipModel', {
       executionRoleArn: sagemakerRole.roleArn,
       primaryContainer: {
         image: `763104351884.dkr.ecr.us-east-1.amazonaws.com/pytorch-inference:2.1-cpu-py310`,
-        modelDataUrl: `s3://${props.trainingBucket.bucketName}/models/plate-read/model.tar.gz`,
+        modelDataUrl: `s3://${props.trainingBucket.bucketName}/models/clip-embedding/model.tar.gz`,
       },
     });
-    plateReadModel.node.addDependency(sagemakerRole);
+    clipModel.node.addDependency(sagemakerRole);
 
-    const plateReadEndpointConfig = new sagemaker.CfnEndpointConfig(this, 'PlateReadEndpointConfig', {
+    const clipEndpointConfig = new sagemaker.CfnEndpointConfig(this, 'ClipEndpointConfig', {
       productionVariants: [{
-        modelName: plateReadModel.attrModelName,
-        variantName: 'AllTraffic',
-        serverlessConfig: {
-          maxConcurrency: 2,
-          memorySizeInMb: 2048,
-        },
-      }],
-    });
-
-    new sagemaker.CfnEndpoint(this, 'PlateReadEndpoint', {
-      endpointConfigName: plateReadEndpointConfig.attrEndpointConfigName,
-      endpointName: 'argus-plate-read',
-    });
-
-    // Vehicle Classifier endpoint (Serverless Inference)
-    const vehicleModel = new sagemaker.CfnModel(this, 'VehicleClassifierModel', {
-      executionRoleArn: sagemakerRole.roleArn,
-      primaryContainer: {
-        image: `763104351884.dkr.ecr.us-east-1.amazonaws.com/pytorch-inference:2.1-cpu-py310`,
-        modelDataUrl: `s3://${props.trainingBucket.bucketName}/models/vehicle-classifier/model.tar.gz`,
-      },
-    });
-    vehicleModel.node.addDependency(sagemakerRole);
-
-    const vehicleEndpointConfig = new sagemaker.CfnEndpointConfig(this, 'VehicleEndpointConfig', {
-      productionVariants: [{
-        modelName: vehicleModel.attrModelName,
+        modelName: clipModel.attrModelName,
         variantName: 'AllTraffic',
         serverlessConfig: {
           maxConcurrency: 3,
-          memorySizeInMb: 2048,
+          memorySizeInMb: 3072,
         },
       }],
     });
 
-    new sagemaker.CfnEndpoint(this, 'VehicleClassifierEndpoint', {
-      endpointConfigName: vehicleEndpointConfig.attrEndpointConfigName,
-      endpointName: 'argus-vehicle-classifier',
+    new sagemaker.CfnEndpoint(this, 'ClipEndpoint', {
+      endpointConfigName: clipEndpointConfig.attrEndpointConfigName,
+      endpointName: 'argus-clip',
     });
 
-    // Nightly pattern batch Lambda
-    const patternBatchFn = new lambda.Function(this, 'PatternBatchFn', {
+    // Nightly aggregation batch Lambda
+    const aggregationBatchFn = new lambda.Function(this, 'AggregationBatchFn', {
       runtime: lambda.Runtime.PYTHON_3_12,
-      handler: 'batch_patterns.lambda_handler',
+      handler: 'batch_aggregation.lambda_handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../api'), {
         bundling: {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
-          command: ['bash', '-c', 'cp -r /asset-input/pattern/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared'],
+          command: ['bash', '-c', 'pip install requests -t /asset-output/ && cp -r /asset-input/scan_analytics/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared'],
         },
       }),
       environment: { TABLE_NAME: props.table.tableName },
       timeout: cdk.Duration.minutes(5),
       memorySize: 512,
     });
-    props.table.grantReadWriteData(patternBatchFn);
+    props.table.grantReadWriteData(aggregationBatchFn);
 
-    // EventBridge: nightly batch at 4 AM UTC
-    new events.Rule(this, 'NightlyPatternRule', {
+    // EventBridge: nightly aggregation at 4 AM UTC
+    new events.Rule(this, 'NightlyAggregationRule', {
       schedule: events.Schedule.expression('cron(0 4 * * ? *)'),
-      targets: [new targets.LambdaFunction(patternBatchFn)],
+      targets: [new targets.LambdaFunction(aggregationBatchFn)],
     });
 
     // Retrain trigger Lambda (kicks off SageMaker Training Jobs)
     const retrainFn = new lambda.Function(this, 'RetrainTriggerFn', {
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: 'retrain_trigger.lambda_handler',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../../ml')),
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../ml'), {
+        exclude: ['*.tar.gz', 'model_data/**', '*.whl'],
+      }),
       environment: {
         TRAINING_BUCKET: props.trainingBucket.bucketName,
         SAGEMAKER_ROLE_ARN: sagemakerRole.roleArn,
@@ -130,6 +106,7 @@ export class MlStack extends cdk.Stack {
 
     // EventBridge: weekly retrain on Sundays at 6 AM UTC
     new events.Rule(this, 'WeeklyRetrainRule', {
+      description: 'Weekly CLIP model retraining',
       schedule: events.Schedule.expression('cron(0 6 ? * SUN *)'),
       targets: [new targets.LambdaFunction(retrainFn)],
     });

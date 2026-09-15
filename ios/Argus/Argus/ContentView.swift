@@ -9,7 +9,18 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
-        CaptureView()
+        TabView {
+            ScanView()
+                .tabItem {
+                    Label("Scan", systemImage: "camera.viewfinder")
+                }
+
+            ExploreMapView()
+                .tabItem {
+                    Label("Explore", systemImage: "map")
+                }
+        }
+        .tint(.green)
     }
 }
 

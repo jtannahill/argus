@@ -1,0 +1,4 @@
+torch>=2.0
+git+https://github.com/openai/CLIP.git
+Pillow>=10.0
+numpy>=1.24

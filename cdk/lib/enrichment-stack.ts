@@ -1,5 +1,8 @@
 import * as cdk from 'aws-cdk-lib';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as s3n from 'aws-cdk-lib/aws-s3-notifications';
@@ -21,129 +24,131 @@ export class EnrichmentStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: EnrichmentStackProps) {
     super(scope, id, props);
 
-    // ── PlateLookup Lambda ────────────────────────────────────────────────
-    const plateLookupFn = new lambda.Function(this, 'PlateLookupFunction', {
+    // ── DataAssembly Lambda ─────────────────────────────────────────────
+    const dataAssemblyFn = new lambda.Function(this, 'DataAssemblyFunction', {
       runtime: lambda.Runtime.PYTHON_3_12,
-      handler: 'plate_lookup.lambda_handler',
+      handler: 'handler.lambda_handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../api'), {
         bundling: {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
           command: [
             'bash', '-c',
-            'cp -r /asset-input/enrichment/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/data_assembly/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
           ],
         },
       }),
-      environment: { TABLE_NAME: props.table.tableName },
-      timeout: cdk.Duration.seconds(30),
-      memorySize: 256,
-    });
-    props.table.grantReadData(plateLookupFn);
-
-    // ── PatternDetection Lambda ───────────────────────────────────────────
-    const patternFn = new lambda.Function(this, 'PatternDetectionFunction', {
-      runtime: lambda.Runtime.PYTHON_3_12,
-      handler: 'pattern_detection.lambda_handler',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../../api'), {
-        bundling: {
-          image: lambda.Runtime.PYTHON_3_12.bundlingImage,
-          command: [
-            'bash', '-c',
-            'cp -r /asset-input/pattern/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
-          ],
-        },
-      }),
-      environment: { TABLE_NAME: props.table.tableName },
-      timeout: cdk.Duration.seconds(30),
-      memorySize: 256,
-    });
-    props.table.grantReadWriteData(patternFn);
-
-    // ── MergeResults Lambda ───────────────────────────────────────────────
-    const mergeResultsFn = new lambda.Function(this, 'MergeResultsFunction', {
-      runtime: lambda.Runtime.PYTHON_3_12,
-      handler: 'merge_results.lambda_handler',
-      code: lambda.Code.fromAsset(path.join(__dirname, '../../api'), {
-        bundling: {
-          image: lambda.Runtime.PYTHON_3_12.bundlingImage,
-          command: [
-            'bash', '-c',
-            'cp -r /asset-input/enrichment/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
-          ],
-        },
-      }),
-      environment: { TABLE_NAME: props.table.tableName },
-      timeout: cdk.Duration.seconds(30),
-      memorySize: 256,
-    });
-    props.table.grantReadWriteData(mergeResultsFn);
-
-    // ── State machine steps ───────────────────────────────────────────────
-
-    // Branch 0: PlateLookup
-    const plateLookupTask = new tasks.LambdaInvoke(this, 'PlateLookup', {
-      lambdaFunction: plateLookupFn,
-      outputPath: '$.Payload',
-    });
-
-    // Branch 1: VehicleClassifier stub
-    const vehicleClassifierStub = new sfn.Pass(this, 'VehicleClassifier', {
-      result: sfn.Result.fromObject({ make: null, model: null, year: null, color: null }),
-    });
-
-    // Branch 2: PlateRead stub
-    const plateReadStub = new sfn.Pass(this, 'PlateRead', {
-      result: sfn.Result.fromObject({ refinedPlate: null, confidence: 0 }),
-    });
-
-    // Parallel state: run all 3 branches concurrently
-    const parallel = new sfn.Parallel(this, 'EnrichInParallel', {
-      resultPath: '$.parallelResults',
-    });
-    parallel.branch(plateLookupTask);
-    parallel.branch(vehicleClassifierStub);
-    parallel.branch(plateReadStub);
-
-    // Restructure parallel output array into named keys
-    const restructure = new sfn.Pass(this, 'RestructureParallelOutput', {
-      parameters: {
-        'plateLookup.$': '$.parallelResults[0]',
-        'vehicleClassifier.$': '$.parallelResults[1]',
-        'plateRead.$': '$.parallelResults[2]',
-        'plate.$': '$.plate',
-        'sightingId.$': '$.sightingId',
-        'timestamp.$': '$.timestamp',
-        'confidence.$': '$.confidence',
-        'latitude.$': '$.latitude',
-        'longitude.$': '$.longitude',
-        'bucket.$': '$.bucket',
-        'plateImageKey.$': '$.plateImageKey',
-        'vehicleImageKey.$': '$.vehicleImageKey',
+      environment: {
+        TABLE_NAME: props.table.tableName,
+        GEOCLIENT_APP_ID: process.env.GEOCLIENT_APP_ID ?? '',
+        GEOCLIENT_APP_KEY: process.env.GEOCLIENT_APP_KEY ?? '',
+        SOCRATA_TOKEN: process.env.SOCRATA_TOKEN ?? '',
       },
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
     });
+    props.table.grantReadWriteData(dataAssemblyFn);
 
-    // MergeResults Lambda task
-    const mergeTask = new tasks.LambdaInvoke(this, 'MergeResults', {
-      lambdaFunction: mergeResultsFn,
+    // ── StoryGenerator Lambda ───────────────────────────────────────────
+    const storyFn = new lambda.Function(this, 'StoryFunction', {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'handler.lambda_handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../api'), {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_12.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/story/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+          ],
+        },
+      }),
+      environment: { TABLE_NAME: props.table.tableName },
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+    });
+    props.table.grantReadWriteData(storyFn);
+    storyFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['bedrock:InvokeModel'],
+      resources: ['*'],
+    }));
+
+    // ── VisualMatch Lambda ──────────────────────────────────────────────
+    const visualMatchFn = new lambda.Function(this, 'VisualMatchFunction', {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'handler.lambda_handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../api'), {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_12.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/visual_match/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+          ],
+        },
+      }),
+      environment: {
+        TABLE_NAME: props.table.tableName,
+        SAGEMAKER_ENDPOINT: 'argus-clip',
+        CAPTURES_BUCKET: props.capturesBucket.bucketName,
+      },
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+    });
+    props.table.grantReadWriteData(visualMatchFn);
+    props.capturesBucket.grantRead(visualMatchFn);
+    visualMatchFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['sagemaker:InvokeEndpoint'],
+      resources: ['*'],
+    }));
+
+    // ── ScanAnalytics Lambda ────────────────────────────────────────────
+    const scanAnalyticsFn = new lambda.Function(this, 'ScanAnalyticsFunction', {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'handler.lambda_handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../api'), {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_12.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/scan_analytics/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+          ],
+        },
+      }),
+      environment: { TABLE_NAME: props.table.tableName },
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+    });
+    props.table.grantReadWriteData(scanAnalyticsFn);
+
+    // ── State machine: sequential chain ─────────────────────────────────
+
+    const dataAssemblyTask = new tasks.LambdaInvoke(this, 'DataAssembly', {
+      lambdaFunction: dataAssemblyFn,
       outputPath: '$.Payload',
     });
 
-    // PatternDetection Lambda task
-    const patternTask = new tasks.LambdaInvoke(this, 'PatternDetection', {
-      lambdaFunction: patternFn,
+    const storyTask = new tasks.LambdaInvoke(this, 'StoryGenerator', {
+      lambdaFunction: storyFn,
       outputPath: '$.Payload',
     });
 
-    // Notify Lambda task — push enrichment results + alerts to WebSocket clients
+    const visualMatchTask = new tasks.LambdaInvoke(this, 'VisualMatch', {
+      lambdaFunction: visualMatchFn,
+      outputPath: '$.Payload',
+    });
+
+    const scanAnalyticsTask = new tasks.LambdaInvoke(this, 'ScanAnalytics', {
+      lambdaFunction: scanAnalyticsFn,
+      outputPath: '$.Payload',
+    });
+
     const notifyTask = new tasks.LambdaInvoke(this, 'NotifyClients', {
       lambdaFunction: props.notifyFn,
       outputPath: '$.Payload',
     });
 
-    // Chain the state machine: parallel → restructure → merge → pattern → notify
+    // Chain: DataAssembly → StoryGenerator → VisualMatch → ScanAnalytics → NotifyClients
     this.stateMachine = new sfn.StateMachine(this, 'EnrichmentStateMachine', {
       definitionBody: sfn.DefinitionBody.fromChainable(
-        parallel.next(restructure).next(mergeTask).next(patternTask).next(notifyTask),
+        dataAssemblyTask.next(storyTask).next(visualMatchTask).next(scanAnalyticsTask).next(notifyTask),
       ),
       timeout: cdk.Duration.minutes(5),
     });
@@ -157,7 +162,7 @@ export class EnrichmentStack extends cdk.Stack {
           image: lambda.Runtime.PYTHON_3_12.bundlingImage,
           command: [
             'bash', '-c',
-            'cp -r /asset-input/enrichment/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/enrichment/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
           ],
         },
       }),
@@ -172,10 +177,7 @@ export class EnrichmentStack extends cdk.Stack {
     props.table.grantReadData(this.triggerFn);
     this.stateMachine.grantStartExecution(this.triggerFn);
 
-    // S3 event notification: vehicle frame uploads trigger the pipeline.
-    // Use fromBucketAttributes to create an unowned reference in this stack,
-    // avoiding the cross-stack cyclic dependency that addEventNotification
-    // would create when called on the DataStack-owned bucket directly.
+    // S3 event notification: building photo uploads trigger the pipeline.
     const capturesBucketRef = s3.Bucket.fromBucketAttributes(this, 'CapturesBucketRef', {
       bucketName: props.capturesBucket.bucketName,
       bucketArn: props.capturesBucket.bucketArn,
@@ -184,8 +186,33 @@ export class EnrichmentStack extends cdk.Stack {
     capturesBucketRef.addEventNotification(
       s3.EventType.OBJECT_CREATED,
       new s3n.LambdaDestination(this.triggerFn),
-      { suffix: '-vehicle.jpg' },
+      { suffix: '.jpg' },
     );
+
+    // ── Aggregator Lambda (daily schedule) ──────────────────────────────
+    const aggregatorFn = new lambda.Function(this, 'AggregatorFunction', {
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'handler.lambda_handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../api'), {
+        bundling: {
+          image: lambda.Runtime.PYTHON_3_12.bundlingImage,
+          command: [
+            'bash', '-c',
+            'pip install requests -t /asset-output/ && cp -r /asset-input/scan_analytics/* /asset-output/ && cp -r /asset-input/shared /asset-output/shared',
+          ],
+        },
+      }),
+      environment: { TABLE_NAME: props.table.tableName },
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
+    });
+    props.table.grantReadWriteData(aggregatorFn);
+
+    // EventBridge: daily aggregation at 2 AM UTC
+    new events.Rule(this, 'DailyAggregationRule', {
+      schedule: events.Schedule.expression('cron(0 2 * * ? *)'),
+      targets: [new targets.LambdaFunction(aggregatorFn)],
+    });
 
     // Outputs
     new cdk.CfnOutput(this, 'StateMachineArn', {

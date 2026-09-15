@@ -7,6 +7,8 @@ export class DataStack extends cdk.Stack {
   public readonly table: dynamodb.Table;
   public readonly capturesBucket: s3.Bucket;
   public readonly trainingBucket: s3.Bucket;
+  public readonly indexBucket: s3.Bucket;
+  public readonly embeddingsBucket: s3.Bucket;
 
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
@@ -57,9 +59,25 @@ export class DataStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
+    // Building reference images from Street View + user photos
+    this.indexBucket = new s3.Bucket(this, 'IndexBucket', {
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    // CLIP embedding vectors
+    this.embeddingsBucket = new s3.Bucket(this, 'EmbeddingsBucket', {
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
     // Exports
     new cdk.CfnOutput(this, 'TableName', { value: this.table.tableName, exportName: 'ArgusTableName' });
     new cdk.CfnOutput(this, 'CapturesBucketName', { value: this.capturesBucket.bucketName, exportName: 'ArgusCapturesBucket' });
     new cdk.CfnOutput(this, 'TrainingBucketName', { value: this.trainingBucket.bucketName, exportName: 'ArgusTrainingBucket' });
+    new cdk.CfnOutput(this, 'IndexBucketName', { value: this.indexBucket.bucketName, exportName: 'ArgusIndexBucket' });
+    new cdk.CfnOutput(this, 'EmbeddingsBucketName', { value: this.embeddingsBucket.bucketName, exportName: 'ArgusEmbeddingsBucket' });
   }
 }
